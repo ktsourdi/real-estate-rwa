@@ -76,6 +76,7 @@ export const propertySaleAbi = [
   { "type": "function", "name": "settle", "stateMutability": "nonpayable", "inputs": [], "outputs": [] },
   { "type": "function", "name": "pricePerToken", "stateMutability": "view", "inputs": [], "outputs": [{ "type": "uint256" }] },
   { "type": "function", "name": "totalPurchased", "stateMutability": "view", "inputs": [], "outputs": [{ "type": "uint256" }] },
+  { "type": "function", "name": "purchased", "stateMutability": "view", "inputs": [{ "type": "address" }], "outputs": [{ "type": "uint256" }] },
   { "type": "function", "name": "MAX_SUPPLY", "stateMutability": "view", "inputs": [], "outputs": [{ "type": "uint256" }] }
 ] as const
 

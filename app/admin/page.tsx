@@ -75,7 +75,7 @@ export default function AdminPage() {
             </div>
             <Button disabled={creating || !address} onClick={async () => {
               try {
-                await uploadPropertyMetadata({
+                const meta = await uploadPropertyMetadata({
                   title: metaForm.title,
                   description: metaForm.description,
                   location: metaForm.location,
@@ -107,7 +107,7 @@ export default function AdminPage() {
 
                 const catalogKey = 'rwa_catalog'
                 const existing = JSON.parse(localStorage.getItem(catalogKey) || '[]')
-                const item = { name, symbol, totalPrice: String(offerForm.totalPrice), token: tokenAddr || null, sale: saleAddr || null }
+                const item = { name, symbol, totalPrice: String(offerForm.totalPrice), token: tokenAddr || null, sale: saleAddr || null, image: meta.imageURI || null, location: metaForm.location }
                 localStorage.setItem(catalogKey, JSON.stringify([item, ...existing]))
                 toast({ title: 'Sale created', description: `Token: ${tokenAddr?.slice(0,6)}… Sale: ${saleAddr?.slice(0,6)}…` })
               } catch (e: any) {

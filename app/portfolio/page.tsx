@@ -7,7 +7,7 @@ import { Wallet } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useAccount } from 'wagmi'
 import { publicClient } from '@/lib/publicClient'
-import { erc20Abi } from '@/lib/abis'
+import { erc20Abi, propertySaleAbi } from '@/lib/abis'
 
 function loadCatalog() {
   if (typeof window === 'undefined') return [] as any[]
@@ -24,11 +24,11 @@ export default function Portfolio() {
     async function load() {
       const cats = loadCatalog()
       if (!address || cats.length === 0) { if (mounted) setHoldings([]); return }
-      // Read balances for each property token
+      // Read purchased amounts from sale (source of truth for ownership in MVP)
       const results = await Promise.all(cats.map(async (c: any) => {
-        if (!c.token) return null
-        const bal = await publicClient.readContract({ address: c.token as `0x${string}`, abi: erc20Abi as any, functionName: 'balanceOf', args: [address] }) as any
-        return { name: c.name, token: c.token, sale: c.sale, tokensOwned: Number(bal), totalTokens: 1000 }
+        if (!c.sale) return null
+        const bought = await publicClient.readContract({ address: c.sale as `0x${string}`, abi: propertySaleAbi as any, functionName: 'purchased', args: [address] }) as any
+        return { name: c.name, token: c.token, sale: c.sale, tokensOwned: Number(bought), totalTokens: 1000 }
       }))
       const filtered = results.filter(Boolean) as any[]
       if (mounted) setHoldings(filtered)

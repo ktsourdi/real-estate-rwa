@@ -48,7 +48,7 @@ function PropertyCard({ property, writeContractAsync }: { property: any, writeCo
   const [owned, setOwned] = useState<bigint | null>(null)
   const [amount, setAmount] = useState<string>('1')
   const MAX = BigInt(1000)
-  const image = 'https://images.pexels.com/photos/106399/pexels-photo-106399.jpeg'
+  const image = property.image || 'https://images.pexels.com/photos/106399/pexels-photo-106399.jpeg'
   const { address } = useAccount()
   const { toast } = useToast()
 
@@ -62,10 +62,10 @@ function PropertyCard({ property, writeContractAsync }: { property: any, writeCo
           publicClient.readContract({ address: property.sale as `0x${string}`, abi: propertySaleAbi as any, functionName: 'totalPurchased', args: [] }) as Promise<any>,
         ])
         if (mounted) { setPrice(pp as bigint); setPurchased(tp as bigint) }
-        // Fetch user's owned tokens for this property
-        if (mounted && property.token && address) {
-          const bal = await publicClient.readContract({ address: property.token as `0x${string}`, abi: erc20Abi as any, functionName: 'balanceOf', args: [address] }) as any
-          if (mounted) setOwned(bal as bigint)
+        // Fetch user's purchased amount from sale mapping as "owned" per business rule (no claim)
+        if (mounted && property.sale && address) {
+          const bought = await publicClient.readContract({ address: property.sale as `0x${string}`, abi: propertySaleAbi as any, functionName: 'purchased', args: [address] }) as any
+          if (mounted) setOwned(bought as bigint)
         }
       } catch {}
     }
@@ -88,6 +88,7 @@ function PropertyCard({ property, writeContractAsync }: { property: any, writeCo
 
       <CardHeader className="pb-3">
         <CardTitle className="text-xl">{property.name}</CardTitle>
+        {property.location ? (<p className="text-sm text-muted-foreground mt-1">{property.location}</p>) : null}
       </CardHeader>
 
       <CardContent className="space-y-5">
@@ -152,7 +153,7 @@ function PropertyCard({ property, writeContractAsync }: { property: any, writeCo
                 // Refresh purchased and owned balances
                 const [tp2, bal2] = await Promise.all([
                   publicClient.readContract({ address: property.sale as `0x${string}`, abi: propertySaleAbi as any, functionName: 'totalPurchased', args: [] }) as Promise<any>,
-                  property.token && address ? publicClient.readContract({ address: property.token as `0x${string}`, abi: erc20Abi as any, functionName: 'balanceOf', args: [address] }) as Promise<any> : Promise.resolve(owned ?? BigInt(0))
+                  address ? publicClient.readContract({ address: property.sale as `0x${string}`, abi: propertySaleAbi as any, functionName: 'purchased', args: [address] }) as Promise<any> : Promise.resolve(owned ?? BigInt(0))
                 ])
                 setPurchased(tp2 as bigint)
                 setOwned(bal2 as bigint)

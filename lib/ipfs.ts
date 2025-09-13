@@ -6,7 +6,7 @@ export async function uploadPropertyMetadata(params: {
   location: string
   imageFile?: File | null
   extras?: Record<string, any>
-}) {
+}): Promise<{ tokenURI: string, imageURI: string | null }> {
   const form = new FormData()
   form.set('title', params.title)
   form.set('description', params.description)
@@ -20,7 +20,7 @@ export async function uploadPropertyMetadata(params: {
     throw new Error(text)
   }
   const json = await res.json()
-  return json.tokenURI as string
+  return { tokenURI: json.tokenURI as string, imageURI: (json.imageURI as string | null) ?? null }
 }
 
 
