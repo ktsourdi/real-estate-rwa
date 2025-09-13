@@ -45,6 +45,7 @@ export default function Properties() {
 function PropertyCard({ property, writeContractAsync }: { property: any, writeContractAsync: any }) {
   const [price, setPrice] = useState<bigint | null>(null)
   const [purchased, setPurchased] = useState<bigint | null>(null)
+  const [owned, setOwned] = useState<bigint | null>(null)
   const [amount, setAmount] = useState<string>('1')
   const MAX = BigInt(1000)
   const image = 'https://images.pexels.com/photos/106399/pexels-photo-106399.jpeg'
@@ -61,7 +62,11 @@ function PropertyCard({ property, writeContractAsync }: { property: any, writeCo
           publicClient.readContract({ address: property.sale as `0x${string}`, abi: propertySaleAbi as any, functionName: 'totalPurchased', args: [] }) as Promise<any>,
         ])
         if (mounted) { setPrice(pp as bigint); setPurchased(tp as bigint) }
-        // Claim disabled by business rules; do not fetch token balance
+        // Fetch user's owned tokens for this property
+        if (mounted && property.token && address) {
+          const bal = await publicClient.readContract({ address: property.token as `0x${string}`, abi: erc20Abi as any, functionName: 'balanceOf', args: [address] }) as any
+          if (mounted) setOwned(bal as bigint)
+        }
       } catch {}
     }
     load(); return () => { mounted = false }
@@ -69,6 +74,7 @@ function PropertyCard({ property, writeContractAsync }: { property: any, writeCo
 
   const soldPct = purchased !== null ? Number((purchased * BigInt(100)) / MAX) : 0
   const priceStr = price !== null ? (Number(price) / 1e6).toFixed(2) : '-'
+  const ownedPct = owned !== null ? Number((owned * BigInt(100)) / MAX) : 0
 
   return (
     <Card className="overflow-hidden group hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 bg-card/60 backdrop-blur-sm border-border/50 shadow-lg">
@@ -110,6 +116,7 @@ function PropertyCard({ property, writeContractAsync }: { property: any, writeCo
             <div className="gradient-emerald rounded-full h-3 transition-all duration-500 shadow-sm" style={{ width: `${soldPct}%` }} />
           </div>
           <p className="text-xs text-muted-foreground font-medium">{soldPct}% funded</p>
+          <p className="text-xs text-muted-foreground">You own: <span className="font-medium">{owned !== null ? Number(owned).toString() : '-'}</span> tokens ({ownedPct}%)</p>
         </div>
 
         <div className="flex gap-2">
@@ -129,16 +136,26 @@ function PropertyCard({ property, writeContractAsync }: { property: any, writeCo
                   toast({ title: 'Insufficient USD', description: 'Not enough USD balance to buy this amount.', variant: 'destructive' })
                   return
                 }
-                await writeContractAsync({ address: usd, abi: erc20Abi, functionName: 'approve', args: [property.sale as `0x${string}`, allowance] })
-                await writeContractAsync({ address: property.sale as `0x${string}`, abi: propertySaleAbi, functionName: 'buy', args: [amt] })
+                const approveHash = await writeContractAsync({ address: usd, abi: erc20Abi, functionName: 'approve', args: [property.sale as `0x${string}`, allowance] })
+                if (approveHash) {
+                  await publicClient.waitForTransactionReceipt({ hash: approveHash as `0x${string}` })
+                }
+                const buyHash = await writeContractAsync({ address: property.sale as `0x${string}`, abi: propertySaleAbi, functionName: 'buy', args: [amt] })
+                if (buyHash) {
+                  await publicClient.waitForTransactionReceipt({ hash: buyHash as `0x${string}` })
+                }
                 
                 // Transaction confirmed - show success effects
                 loader?.remove()
                 confettiBurst()
                 
-                // refresh purchased
-                const tp = await publicClient.readContract({ address: property.sale as `0x${string}`, abi: propertySaleAbi as any, functionName: 'totalPurchased', args: [] }) as any
-                setPurchased(tp as bigint)
+                // Refresh purchased and owned balances
+                const [tp2, bal2] = await Promise.all([
+                  publicClient.readContract({ address: property.sale as `0x${string}`, abi: propertySaleAbi as any, functionName: 'totalPurchased', args: [] }) as Promise<any>,
+                  property.token && address ? publicClient.readContract({ address: property.token as `0x${string}`, abi: erc20Abi as any, functionName: 'balanceOf', args: [address] }) as Promise<any> : Promise.resolve(owned ?? BigInt(0))
+                ])
+                setPurchased(tp2 as bigint)
+                setOwned(bal2 as bigint)
               } catch (e) { 
                 loader?.remove()
                 console.error(e)
@@ -150,7 +167,7 @@ function PropertyCard({ property, writeContractAsync }: { property: any, writeCo
               }
             }}
           >
-            Approve + Buy
+            Buy
           </Button>
         </div>
       </CardContent>
