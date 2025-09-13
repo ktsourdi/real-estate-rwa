@@ -8,6 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { uploadPropertyMetadata } from '@/lib/ipfs'
+import { useToast } from '@/hooks/use-toast'
 
 const ADMIN = process.env.NEXT_PUBLIC_ADMIN_ADDRESS?.toLowerCase()
 const DEED = process.env.NEXT_PUBLIC_DEED as `0x${string}`
@@ -17,13 +19,16 @@ export default function AdminPage() {
   const { address } = useAccount()
   const isAdmin = address && ADMIN && address.toLowerCase() === ADMIN
 
-  const [mintForm, setMintForm] = useState({ to: '', tokenId: '', tokenURI: '' })
+  const [mintForm, setMintForm] = useState({ tokenId: '', tokenURI: '' })
+  const [metaForm, setMetaForm] = useState({ title: '', description: '', location: '' })
+  const [imageFile, setImageFile] = useState<File | null>(null)
   const [offerForm, setOfferForm] = useState({
     deedId: '', name: '', symbol: '', price: '', max: '', softCap: '', deadline: ''
   })
 
   const { writeContractAsync: writeDeed, isPending: minting } = useWriteContract()
   const { writeContractAsync: writeFactory, isPending: creating } = useWriteContract()
+  const { toast } = useToast()
 
   if (!isAdmin) {
     return (
@@ -41,25 +46,51 @@ export default function AdminPage() {
             <CardTitle>Mint Deed</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label>Title</Label>
+                <Input value={metaForm.title} onChange={(e) => setMetaForm({ ...metaForm, title: e.target.value })} />
+              </div>
+              <div>
+                <Label>Location</Label>
+                <Input value={metaForm.location} onChange={(e) => setMetaForm({ ...metaForm, location: e.target.value })} />
+              </div>
+            </div>
             <div>
-              <Label>To</Label>
-              <Input value={mintForm.to} onChange={(e) => setMintForm({ ...mintForm, to: e.target.value })} placeholder="0x..." />
+              <Label>Description</Label>
+              <Input value={metaForm.description} onChange={(e) => setMetaForm({ ...metaForm, description: e.target.value })} />
+            </div>
+            <div>
+              <Label>Image</Label>
+              <Input type="file" accept="image/*" onChange={(e) => setImageFile(e.target.files?.[0] || null)} />
             </div>
             <div>
               <Label>Token ID</Label>
               <Input value={mintForm.tokenId} onChange={(e) => setMintForm({ ...mintForm, tokenId: e.target.value })} placeholder="1" />
             </div>
-            <div>
-              <Label>Token URI (IPFS/HTTP)</Label>
-              <Input value={mintForm.tokenURI} onChange={(e) => setMintForm({ ...mintForm, tokenURI: e.target.value })} placeholder="ipfs://..." />
-            </div>
-            <Button disabled={minting} onClick={async () => {
-              await writeDeed({
-                address: DEED,
-                abi: realEstateDeedAbi,
-                functionName: 'mint',
-                args: [mintForm.to as `0x${string}`, BigInt(mintForm.tokenId || '0'), mintForm.tokenURI],
-              })
+            <Button disabled={minting || !address} onClick={async () => {
+              // Upload metadata to IPFS if not provided
+              let tokenURI = mintForm.tokenURI
+              if (!tokenURI) {
+                tokenURI = await uploadPropertyMetadata({
+                  title: metaForm.title,
+                  description: metaForm.description,
+                  location: metaForm.location,
+                  imageFile: imageFile as any,
+                })
+              }
+
+              try {
+                const hash = await writeDeed({
+                  address: DEED,
+                  abi: realEstateDeedAbi,
+                  functionName: 'mint',
+                  args: [address as `0x${string}`, BigInt(mintForm.tokenId || '0'), tokenURI],
+                })
+                toast({ title: 'Mint submitted', description: `Tx: ${String(hash).slice(0,10)}…` })
+              } catch (e: any) {
+                toast({ title: 'Mint failed', description: e?.message || 'Error', variant: 'destructive' })
+              }
             }}>Mint</Button>
           </CardContent>
         </Card>
