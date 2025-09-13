@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react'
 import { useAccount, useWriteContract } from 'wagmi'
 import { erc20Abi, propertySaleAbi } from '@/lib/abis'
 import { publicClient } from '@/lib/publicClient'
+import { confettiBurst } from '@/lib/confetti'
 import { useToast } from '@/hooks/use-toast'
 
 function loadCatalog() {
@@ -128,6 +129,7 @@ function PropertyCard({ property, writeContractAsync }: { property: any, writeCo
                 }
                 await writeContractAsync({ address: usd, abi: erc20Abi, functionName: 'approve', args: [property.sale as `0x${string}`, allowance] })
                 await writeContractAsync({ address: property.sale as `0x${string}`, abi: propertySaleAbi, functionName: 'buy', args: [amt] })
+                confettiBurst()
                 // refresh purchased
                 const tp = await publicClient.readContract({ address: property.sale as `0x${string}`, abi: propertySaleAbi as any, functionName: 'totalPurchased' }) as any
                 setPurchased(tp as bigint)
