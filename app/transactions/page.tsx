@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { useEffect, useState } from 'react'
 import { useAccount } from 'wagmi'
 import { publicClient } from '@/lib/publicClient'
+import { decodeEventLog } from 'viem'
 import { propertySaleAbi } from '@/lib/abis'
 
 type TxRow = {
@@ -49,7 +50,7 @@ export default function Transactions() {
           // Decode and filter
           for (const log of logs) {
             try {
-              const parsed = publicClient.decodeEventLog({ abi: propertySaleAbi as any, data: log.data, topics: log.topics }) as any
+              const parsed = decodeEventLog({ abi: propertySaleAbi as any, data: log.data, topics: log.topics }) as any
               if (parsed.eventName === 'Purchased' && parsed.args?.buyer?.toLowerCase() === address.toLowerCase()) {
                 const amount = Number(parsed.args.amount)
                 const cost = Number(parsed.args.cost) / 1e6
