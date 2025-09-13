@@ -1,77 +1,45 @@
+"use client"
+
 import { DashboardLayout } from '@/components/layout/dashboard-layout'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
-import { Wallet, Building, TrendingUp, DollarSign } from 'lucide-react'
+import { Wallet } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { useAccount } from 'wagmi'
+import { publicClient } from '@/lib/publicClient'
+import { erc20Abi } from '@/lib/abis'
 
-const walletData = {
-  balance: '120.45',
-  currency: 'USDC',
-  totalInvested: '12,450',
-  totalValue: '13,280',
-  totalYield: '6.7%',
-  monthlyIncome: '540.20'
+function loadCatalog() {
+  if (typeof window === 'undefined') return [] as any[]
+  try { return JSON.parse(localStorage.getItem('rwa_catalog') || '[]') } catch { return [] }
 }
 
-const holdings = [
-  {
-    id: 1,
-    property: "Athens Apartment",
-    location: "Kolonaki, Athens",
-    tokensOwned: 50,
-    totalTokens: 1000,
-    percentage: 5.0,
-    investedAmount: 1250,
-    currentValue: 1340,
-    monthlyRent: 28.50
-  },
-  {
-    id: 2,
-    property: "Thessaloniki Loft",
-    location: "Ladadika, Thessaloniki",
-    tokensOwned: 100,
-    totalTokens: 800,
-    percentage: 12.5,
-    investedAmount: 1800,
-    currentValue: 1920,
-    monthlyRent: 78.40
-  },
-  {
-    id: 3,
-    property: "Crete Villa",
-    location: "Chania, Crete",
-    tokensOwned: 75,
-    totalTokens: 1200,
-    percentage: 6.25,
-    investedAmount: 3375,
-    currentValue: 3600,
-    monthlyRent: 180.00
-  },
-  {
-    id: 4,
-    property: "Mykonos Hotel",
-    location: "Mykonos Town, Mykonos",
-    tokensOwned: 25,
-    totalTokens: 2000,
-    percentage: 1.25,
-    investedAmount: 3000,
-    currentValue: 3150,
-    monthlyRent: 196.88
-  },
-  {
-    id: 5,
-    property: "Rhodes Apartment",
-    location: "Old Town, Rhodes",
-    tokensOwned: 60,
-    totalTokens: 600,
-    percentage: 10.0,
-    investedAmount: 2100,
-    currentValue: 2240,
-    monthlyRent: 108.50
-  }
-]
-
 export default function Portfolio() {
+  const { address } = useAccount()
+  const [holdings, setHoldings] = useState<any[]>([])
+  const [usdBalance, setUsdBalance] = useState<string>('0.00')
+
+  useEffect(() => {
+    let mounted = true
+    async function load() {
+      const cats = loadCatalog()
+      if (!address || cats.length === 0) { if (mounted) setHoldings([]); return }
+      // Read balances for each property token
+      const results = await Promise.all(cats.map(async (c: any) => {
+        if (!c.token) return null
+        const bal = await publicClient.readContract({ address: c.token as `0x${string}`, abi: erc20Abi as any, functionName: 'balanceOf', args: [address] }) as any
+        return { name: c.name, token: c.token, sale: c.sale, tokensOwned: Number(bal), totalTokens: 1000 }
+      }))
+      const filtered = results.filter(Boolean) as any[]
+      if (mounted) setHoldings(filtered)
+      // USD balance
+      const usd = process.env.NEXT_PUBLIC_USD as `0x${string}`
+      const usdBal = await publicClient.readContract({ address: usd, abi: erc20Abi as any, functionName: 'balanceOf', args: [address] }) as any
+      if (mounted) setUsdBalance((Number(usdBal) / 1e6).toFixed(2))
+    }
+    load(); return () => { mounted = false }
+  }, [address])
   return (
     <DashboardLayout>
       <div className="space-y-8">
@@ -93,7 +61,7 @@ export default function Portfolio() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 dark:from-slate-100 dark:to-slate-300 bg-clip-text text-transparent">
-                {walletData.balance} {walletData.currency}
+                {usdBalance} dUSD
               </div>
               <p className="text-xs text-muted-foreground mt-1">Available for investment</p>
             </CardContent>
@@ -155,59 +123,33 @@ export default function Portfolio() {
           </CardHeader>
           <CardContent>
             <div className="space-y-6">
-              {holdings.map((holding) => {
-                const profitLoss = holding.currentValue - holding.investedAmount
-                const profitLossPercentage = ((profitLoss / holding.investedAmount) * 100).toFixed(1)
-                
-                return (
-                  <div key={holding.id} className="border border-border/50 rounded-xl p-6 space-y-4 bg-gradient-to-r from-muted/20 to-muted/10 hover:from-muted/30 hover:to-muted/20 transition-all duration-300 hover:shadow-md">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between">
-                      <div>
-                        <h3 className="font-semibold text-lg">{holding.property}</h3>
-                        <p className="text-sm text-muted-foreground">{holding.location}</p>
-                      </div>
-                      <Badge variant="outline" className="self-start sm:self-center mt-2 sm:mt-0 border-emerald-200 text-emerald-700 dark:border-emerald-800 dark:text-emerald-300">
-                        {holding.percentage}% ownership
-                      </Badge>
+              {holdings.length === 0 && (
+                <p className="text-sm text-muted-foreground">No holdings yet. Buy tokens from the Properties page.</p>
+              )}
+              {holdings.map((h, i) => (
+                <div key={i} className="border border-border/50 rounded-xl p-6 space-y-4 bg-gradient-to-r from-muted/20 to-muted/10 hover:from-muted/30 hover:to-muted/20 transition-all duration-300 hover:shadow-md">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between">
+                    <div>
+                      <h3 className="font-semibold text-lg">{h.name}</h3>
+                      <p className="text-sm text-muted-foreground">Token: {h.token}</p>
                     </div>
+                    <Badge variant="outline" className="self-start sm:self-center mt-2 sm:mt-0 border-emerald-200 text-emerald-700 dark:border-emerald-800 dark:text-emerald-300">
+                      {((h.tokensOwned / h.totalTokens) * 100).toFixed(2)}% ownership
+                    </Badge>
+                  </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Tokens Owned</p>
-                        <p className="font-semibold">{holding.tokensOwned}/{holding.totalTokens}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Invested</p>
-                        <p className="font-semibold">€{holding.investedAmount.toLocaleString()}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Current Value</p>
-                        <p className="font-semibold">€{holding.currentValue.toLocaleString()}</p>
-                        <p className={`text-xs font-medium ${profitLoss >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
-                          {profitLoss >= 0 ? '+' : ''}€{profitLoss} ({profitLossPercentage}%)
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Monthly Rent</p>
-                        <p className="font-semibold text-emerald-600 dark:text-emerald-400">€{holding.monthlyRent}</p>
-                      </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Tokens Owned</p>
+                      <p className="font-semibold">{h.tokensOwned}/{h.totalTokens}</p>
                     </div>
-
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span>Ownership</span>
-                        <span>{holding.percentage}%</span>
-                      </div>
-                      <div className="w-full bg-slate-200 dark:bg-slate-800 rounded-full h-3 overflow-hidden">
-                        <div 
-                          className="gradient-emerald rounded-full h-3 transition-all duration-500 shadow-sm"
-                          style={{ width: `${holding.percentage}%` }}
-                        />
-                      </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Sale</p>
+                      <p className="font-semibold">{h.sale}</p>
                     </div>
                   </div>
-                )
-              })}
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>
