@@ -1,5 +1,5 @@
 import { http, createConfig } from 'wagmi'
-import { walletConnect, injected } from 'wagmi/connectors'
+import { injected, walletConnect } from '@wagmi/connectors'
 import { sepolia } from 'wagmi/chains'
 
 const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://rpc.ankr.com/eth_sepolia'
