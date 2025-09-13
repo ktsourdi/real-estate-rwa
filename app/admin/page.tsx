@@ -22,9 +22,7 @@ export default function AdminPage() {
   const [mintForm, setMintForm] = useState({ tokenId: '', tokenURI: '' })
   const [metaForm, setMetaForm] = useState({ title: '', description: '', location: '' })
   const [imageFile, setImageFile] = useState<File | null>(null)
-  const [offerForm, setOfferForm] = useState({
-    deedId: '', name: '', symbol: '', price: '', max: '', softCap: '', deadline: ''
-  })
+  const [offerForm, setOfferForm] = useState({ deedId: '', totalPrice: '' })
 
   const { writeContractAsync: writeDeed, isPending: minting } = useWriteContract()
   const { writeContractAsync: writeFactory, isPending: creating } = useWriteContract()
@@ -88,6 +86,8 @@ export default function AdminPage() {
                   args: [address as `0x${string}`, BigInt(mintForm.tokenId || '0'), tokenURI],
                 })
                 toast({ title: 'Mint submitted', description: `Tx: ${String(hash).slice(0,10)}…` })
+                // Prefill offering Deed ID with the minted tokenId for convenience
+                setOfferForm((prev) => ({ ...prev, deedId: mintForm.tokenId || prev.deedId }))
               } catch (e: any) {
                 toast({ title: 'Mint failed', description: e?.message || 'Error', variant: 'destructive' })
               }
@@ -97,59 +97,54 @@ export default function AdminPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Create Offering</CardTitle>
+            <CardTitle>Create Offering (fixed 1000 fractions)</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
               <Label>Deed ID</Label>
               <Input value={offerForm.deedId} onChange={(e) => setOfferForm({ ...offerForm, deedId: e.target.value })} placeholder="1" />
+              <p className="text-xs text-muted-foreground mt-1">Deed ID equals the Token ID you minted above. It auto-fills after a successful mint.</p>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Name</Label>
-                <Input value={offerForm.name} onChange={(e) => setOfferForm({ ...offerForm, name: e.target.value })} />
-              </div>
-              <div>
-                <Label>Symbol</Label>
-                <Input value={offerForm.symbol} onChange={(e) => setOfferForm({ ...offerForm, symbol: e.target.value })} />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Price per Fraction (6 decimals)</Label>
-                <Input value={offerForm.price} onChange={(e) => setOfferForm({ ...offerForm, price: e.target.value })} placeholder="25000000" />
-              </div>
-              <div>
-                <Label>Max Fractions</Label>
-                <Input value={offerForm.max} onChange={(e) => setOfferForm({ ...offerForm, max: e.target.value })} placeholder="1000000" />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Soft Cap Fractions</Label>
-                <Input value={offerForm.softCap} onChange={(e) => setOfferForm({ ...offerForm, softCap: e.target.value })} placeholder="600000" />
-              </div>
-              <div>
-                <Label>Deadline (unix)</Label>
-                <Input value={offerForm.deadline} onChange={(e) => setOfferForm({ ...offerForm, deadline: e.target.value })} placeholder="$(date +%s)+..." />
-              </div>
+            <div>
+              <Label>Total Price (USD, 6 decimals)</Label>
+              <Input value={offerForm.totalPrice} onChange={(e) => setOfferForm({ ...offerForm, totalPrice: e.target.value })} placeholder="25000000000" />
+              <p className="text-xs text-muted-foreground mt-1">Price is for the whole property; 1000 fractions are created, price per fraction = total/1000.</p>
             </div>
             <Button disabled={creating} onClick={async () => {
-              await writeFactory({
-                address: FACTORY,
-                abi: fractionFactoryAbi,
-                functionName: 'createOffering',
-                args: [
-                  DEED,
-                  BigInt(offerForm.deedId || '0'),
-                  offerForm.name,
-                  offerForm.symbol,
-                  BigInt(offerForm.price || '0'),
-                  BigInt(offerForm.max || '0'),
-                  BigInt(offerForm.softCap || '0'),
-                  BigInt(offerForm.deadline || '0'),
-                ],
-              })
+              try {
+                const total = BigInt(offerForm.totalPrice || '0')
+                const max = 1000n
+                const pricePerFraction = total / max
+                const remainder = total % max
+                const softCap = max // all-or-nothing
+                const deadline = BigInt(Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60) // +7 days
+
+                if (remainder !== 0n) {
+                  toast({ title: 'Note', description: 'Total price not divisible by 1000; rounding down per-fraction price.', variant: 'secondary' })
+                }
+
+                const defaultName = metaForm.title ? `${metaForm.title} Shares` : `Property #${offerForm.deedId} Shares`
+                const defaultSymbol = metaForm.title ? metaForm.title.replace(/\s+/g, '').slice(0,4).toUpperCase() + 'SH' : `P${offerForm.deedId}`
+
+                const hash = await writeFactory({
+                  address: FACTORY,
+                  abi: fractionFactoryAbi,
+                  functionName: 'createOffering',
+                  args: [
+                    DEED,
+                    BigInt(offerForm.deedId || '0'),
+                    defaultName,
+                    defaultSymbol,
+                    pricePerFraction,
+                    max,
+                    softCap,
+                    deadline,
+                  ],
+                })
+                toast({ title: 'Offering submitted', description: `Tx: ${String(hash).slice(0,10)}…` })
+              } catch (e: any) {
+                toast({ title: 'Create failed', description: e?.message || 'Error', variant: 'destructive' })
+              }
             }}>Create</Button>
           </CardContent>
         </Card>

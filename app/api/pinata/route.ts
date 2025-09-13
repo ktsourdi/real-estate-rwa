@@ -1,3 +1,6 @@
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
+
 export async function POST(req: Request): Promise<Response> {
   try {
     const jwt = process.env.PINATA_JWT

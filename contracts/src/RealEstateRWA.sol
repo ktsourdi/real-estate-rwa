@@ -128,7 +128,6 @@ contract FractionFactory is Ownable {
         FractionToken f = new FractionToken(fractionName, fractionSymbol, msg.sender, deedContract, deedId);
         FractionOffering o = new FractionOffering(msg.sender, usd, deedContract, deedId, address(f), pricePerFraction, maxFractions, softCapFractions, deadline);
         f.transferOwnership(address(o));
-        RealEstateDeed(deedContract).setLocker(deedId, address(o));
         emit OfferingCreated(msg.sender, deedContract, deedId, address(f), address(o));
         return (address(f), address(o));
     }
