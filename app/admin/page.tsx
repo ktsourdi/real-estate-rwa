@@ -5,7 +5,7 @@ import { useAccount, useWriteContract } from 'wagmi'
 import { parseUnits } from 'viem'
 import { propertyFactoryAbi } from '@/lib/abis'
 import { useEffect } from 'react'
-import { createPublicClient, http } from 'viem'
+import { createPublicClient, http, parseEventLogs } from 'viem'
 import { sepolia } from 'viem/chains'
 import { DashboardLayout } from '@/components/layout/dashboard-layout'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -96,40 +96,20 @@ export default function AdminPage() {
                   functionName: 'createSale',
                   args: [name, symbol, total],
                 })
-                toast({ title: 'Sale submitted', description: `Tx: ${String(hash).slice(0,10)}… listening for event…` })
+                toast({ title: 'Sale submitted', description: `Tx: ${String(hash).slice(0,10)}… waiting…` })
 
-                // Listen for the SaleCreated event and stash to localStorage as a simple catalog
+                // Wait for receipt and decode event to get token & sale addresses
                 const client = createPublicClient({ chain: sepolia, transport: http(process.env.NEXT_PUBLIC_RPC_URL) })
-                const logs = await client.getLogs({
-                  address: FACTORY,
-                  event: {
-                    type: 'event',
-                    name: 'SaleCreated',
-                    inputs: [
-                      { name: 'issuer', type: 'address', indexed: true },
-                      { name: 'token', type: 'address' },
-                      { name: 'sale', type: 'address' },
-                      { name: 'ename', type: 'string' },
-                      { name: 'esymbol', type: 'string' },
-                      { name: 'pricePerToken', type: 'uint256' },
-                    ]
-                  } as any,
-                  fromBlock: 'latest',
-                  toBlock: 'latest'
-                }).catch(() => [])
+                const receipt = await client.waitForTransactionReceipt({ hash: hash as `0x${string}` })
+                const decoded = parseEventLogs({ abi: propertyFactoryAbi as any, logs: receipt.logs as any, eventName: 'SaleCreated' }) as any[]
+                const tokenAddr = decoded?.[0]?.args?.token as string | undefined
+                const saleAddr = decoded?.[0]?.args?.sale as string | undefined
 
                 const catalogKey = 'rwa_catalog'
                 const existing = JSON.parse(localStorage.getItem(catalogKey) || '[]')
-                // Fallback: if no logs yet, still push a placeholder; frontend can refresh later
-                const item = {
-                  name,
-                  symbol,
-                  totalPrice: String(offerForm.totalPrice),
-                  token: logs?.[0]?.args?.token || null,
-                  sale: logs?.[0]?.args?.sale || null,
-                }
+                const item = { name, symbol, totalPrice: String(offerForm.totalPrice), token: tokenAddr || null, sale: saleAddr || null }
                 localStorage.setItem(catalogKey, JSON.stringify([item, ...existing]))
-                toast({ title: 'Sale created', description: 'Property was added to the catalog.' })
+                toast({ title: 'Sale created', description: `Token: ${tokenAddr?.slice(0,6)}… Sale: ${saleAddr?.slice(0,6)}…` })
               } catch (e: any) {
                 toast({ title: 'Create failed', description: e?.message || 'Error', variant: 'destructive' })
               }
