@@ -1,8 +1,7 @@
 'use client'
 
-import { Button } from '@/components/ui/button'
 import { ModeToggle } from '@/components/mode-toggle'
-import { Wallet } from 'lucide-react'
+import { ConnectButton } from '@/components/connect-button'
 
 export function Navbar() {
   return (
@@ -15,13 +14,7 @@ export function Navbar() {
         </div>
         
         <div className="flex items-center space-x-4">
-          <Button variant="outline" size="sm" className="hidden sm:flex border-emerald-200 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-300 dark:hover:bg-emerald-950/50 transition-all duration-200">
-            <Wallet className="w-4 h-4 mr-2" />
-            Connect Wallet
-          </Button>
-          <Button variant="outline" size="sm" className="sm:hidden border-emerald-200 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-300 dark:hover:bg-emerald-950/50">
-            <Wallet className="w-4 h-4" />
-          </Button>
+          <ConnectButton />
           <ModeToggle />
         </div>
       </div>
