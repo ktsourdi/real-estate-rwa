@@ -71,6 +71,9 @@ export const propertyFactoryAbi = [
 ] as const
 
 export const propertySaleAbi = [
+  { "type": "event", "name": "Purchased", "inputs": [ { "name": "buyer", "type": "address", "indexed": true }, { "name": "amount", "type": "uint256", "indexed": false }, { "name": "cost", "type": "uint256", "indexed": false } ] },
+  { "type": "event", "name": "Refunded", "inputs": [ { "name": "buyer", "type": "address", "indexed": true }, { "name": "amount", "type": "uint256", "indexed": false }, { "name": "refund", "type": "uint256", "indexed": false } ] },
+  { "type": "event", "name": "Settled", "inputs": [ { "name": "sold", "type": "uint256", "indexed": false }, { "name": "proceeds", "type": "uint256", "indexed": false } ] },
   { "type": "function", "name": "buy", "stateMutability": "nonpayable", "inputs": [{ "name": "amount", "type": "uint256" }], "outputs": [] },
   { "type": "function", "name": "claim", "stateMutability": "nonpayable", "inputs": [], "outputs": [] },
   { "type": "function", "name": "settle", "stateMutability": "nonpayable", "inputs": [], "outputs": [] },

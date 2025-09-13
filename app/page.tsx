@@ -1,67 +1,63 @@
+"use client"
+
 import { DashboardLayout } from '@/components/layout/dashboard-layout'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Building, TrendingUp, Wallet, Receipt } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { useAccount } from 'wagmi'
+import { publicClient } from '@/lib/publicClient'
+import { propertySaleAbi } from '@/lib/abis'
 
-const stats = [
-  {
-    title: 'Total Invested',
-    value: '€12,450',
-    change: '+12.5%',
-    icon: Wallet,
-    changeType: 'positive' as const
-  },
-  {
-    title: 'Properties',
-    value: '8',
-    change: '+2 this month',
-    icon: Building,
-    changeType: 'positive' as const
-  },
-  {
-    title: 'Annual Yield',
-    value: '5.2%',
-    change: '+0.3%',
-    icon: TrendingUp,
-    changeType: 'positive' as const
-  },
-  {
-    title: 'Monthly Income',
-    value: '€540',
-    change: '+€45',
-    icon: Receipt,
-    changeType: 'positive' as const
-  }
-]
-
-const recentProperties = [
-  {
-    id: 1,
-    title: "Athens Apartment",
-    location: "Kolonaki, Athens",
-    invested: "€2,500",
-    yield: "4.7%",
-    status: "active"
-  },
-  {
-    id: 2,
-    title: "Thessaloniki Loft",
-    location: "Ladadika, Thessaloniki",
-    invested: "€1,800",
-    yield: "5.2%",
-    status: "active"
-  },
-  {
-    id: 3,
-    title: "Crete Villa",
-    location: "Chania, Crete",
-    invested: "€4,500",
-    yield: "6.0%",
-    status: "pending"
-  }
-]
+function loadCatalog() {
+  if (typeof window === 'undefined') return [] as any[]
+  try { return JSON.parse(localStorage.getItem('rwa_catalog') || '[]') } catch { return [] }
+}
 
 export default function Dashboard() {
+  const { address } = useAccount()
+  const [totalInvested, setTotalInvested] = useState<number>(0)
+  const [recent, setRecent] = useState<any[]>([])
+  const [propertiesCount, setPropertiesCount] = useState<number>(0)
+
+  useEffect(() => {
+    let mounted = true
+    async function load() {
+      const catalog = loadCatalog()
+      setPropertiesCount(catalog.length)
+      if (!address || catalog.length === 0) { if (mounted) { setTotalInvested(0); setRecent([]) } ; return }
+      // Aggregate buys from events
+      let total = 0
+      const latest: any[] = []
+      for (const c of catalog) {
+        if (!c.sale) continue
+        try {
+          const logs = await publicClient.getLogs({ address: c.sale as `0x${string}`, fromBlock: 'earliest', toBlock: 'latest' })
+          for (const log of logs) {
+            try {
+              const parsed = publicClient.decodeEventLog({ abi: propertySaleAbi as any, data: log.data, topics: log.topics }) as any
+              if (parsed.eventName === 'Purchased' && parsed.args?.buyer?.toLowerCase() === address?.toLowerCase()) {
+                const cost = Number(parsed.args.cost) / 1e6
+                total += cost
+                const block = await publicClient.getBlock({ blockHash: log.blockHash as `0x${string}` })
+                latest.push({
+                  title: c.name,
+                  location: c.location || '',
+                  invested: `$${cost.toFixed(2)}`,
+                  status: 'active',
+                  ts: Number(block.timestamp)
+                })
+              }
+            } catch {}
+          }
+        } catch {}
+      }
+      latest.sort((a,b) => b.ts - a.ts)
+      if (mounted) { setTotalInvested(total); setRecent(latest.slice(0,3)) }
+    }
+    load(); return () => { mounted = false }
+  }, [address])
+
   return (
     <DashboardLayout>
       <div className="space-y-8">
@@ -74,24 +70,59 @@ export default function Dashboard() {
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {stats.map((stat) => (
-            <Card key={stat.title} className="bg-card/50 backdrop-blur-sm border-border/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
-                <div className="p-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
-                  <stat.icon className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 dark:from-slate-100 dark:to-slate-300 bg-clip-text text-transparent">
-                  {stat.value}
-                </div>
-                <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1 font-medium">
-                  {stat.change} from last month
-                </p>
-              </CardContent>
-            </Card>
-          ))}
+          <Card className="bg-card/50 backdrop-blur-sm border-border/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Invested</CardTitle>
+              <div className="p-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
+                <Wallet className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 dark:from-slate-100 dark:to-slate-300 bg-clip-text text-transparent">
+                ${totalInvested.toFixed(2)}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">All time</p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-card/50 backdrop-blur-sm border-border/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Properties</CardTitle>
+              <div className="p-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
+                <Building className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{propertiesCount}</div>
+              <p className="text-xs text-muted-foreground mt-1">In catalog</p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-card/50 backdrop-blur-sm border-border/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Annual Yield</CardTitle>
+              <div className="p-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
+                <TrendingUp className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">-</div>
+              <p className="text-xs text-muted-foreground mt-1">Coming soon</p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-card/50 backdrop-blur-sm border-border/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Monthly Income</CardTitle>
+              <div className="p-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
+                <Receipt className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">-</div>
+              <p className="text-xs text-muted-foreground mt-1">Coming soon</p>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Recent Properties */}
@@ -104,8 +135,8 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {recentProperties.map((property) => (
-                <div key={property.id} className="flex items-center justify-between p-4 border border-border/50 rounded-xl bg-muted/20 hover:bg-muted/40 transition-all duration-200 hover:shadow-md">
+              {recent.map((property, idx) => (
+                <div key={idx} className="flex items-center justify-between p-4 border border-border/50 rounded-xl bg-muted/20 hover:bg-muted/40 transition-all duration-200 hover:shadow-md">
                   <div className="flex items-center space-x-4">
                     <div className="w-12 h-12 gradient-emerald-subtle rounded-xl flex items-center justify-center border border-emerald-200/50 dark:border-emerald-800/50">
                       <Building className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
@@ -118,14 +149,17 @@ export default function Dashboard() {
                   <div className="text-right">
                     <p className="font-medium">{property.invested}</p>
                     <div className="flex items-center space-x-2">
-                      <Badge variant={property.status === 'active' ? 'default' : 'secondary'}>
+                      <Badge variant={'default'}>
                         {property.status}
                       </Badge>
-                      <span className="text-sm text-emerald-600 dark:text-emerald-400 font-medium">{property.yield}</span>
+                      <span className="text-sm text-emerald-600 dark:text-emerald-400 font-medium">&nbsp;</span>
                     </div>
                   </div>
                 </div>
               ))}
+              {recent.length === 0 && (
+                <p className="text-sm text-muted-foreground">No recent investments yet.</p>
+              )}
             </div>
           </CardContent>
         </Card>
