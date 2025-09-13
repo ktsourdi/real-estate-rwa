@@ -9,7 +9,7 @@ import { useEffect, useState } from 'react'
 import { useAccount, useWriteContract } from 'wagmi'
 import { erc20Abi, propertySaleAbi } from '@/lib/abis'
 import { publicClient } from '@/lib/publicClient'
-import { confettiBurst } from '@/lib/confetti'
+import { confettiBurst, showLoading } from '@/lib/confetti'
 import { useToast } from '@/hooks/use-toast'
 
 function loadCatalog() {
@@ -116,6 +116,7 @@ function PropertyCard({ property, writeContractAsync }: { property: any, writeCo
           <input className="w-24 border rounded px-3 py-2 text-sm bg-background" value={amount} onChange={(e) => setAmount(e.target.value)} />
           <Button className="flex-1 gradient-emerald hover:shadow-lg hover:shadow-emerald-500/25 transition-all duration-300 text-white border-0 hover:scale-[1.02]"
             onClick={async () => {
+              const loader = showLoading()
               try {
                 if (!property.sale || price === null || !address) return
                 const amt = BigInt(parseInt(amount || '0'))
@@ -124,16 +125,29 @@ function PropertyCard({ property, writeContractAsync }: { property: any, writeCo
                 const usd = process.env.NEXT_PUBLIC_USD as `0x${string}`
                 const bal = await publicClient.readContract({ address: usd, abi: erc20Abi as any, functionName: 'balanceOf', args: [address] }) as any
                 if ((bal as bigint) < allowance) {
+                  loader?.remove()
                   toast({ title: 'Insufficient USD', description: 'Not enough USD balance to buy this amount.', variant: 'destructive' })
                   return
                 }
                 await writeContractAsync({ address: usd, abi: erc20Abi, functionName: 'approve', args: [property.sale as `0x${string}`, allowance] })
                 await writeContractAsync({ address: property.sale as `0x${string}`, abi: propertySaleAbi, functionName: 'buy', args: [amt] })
+                
+                // Transaction confirmed - show success effects
+                loader?.remove()
                 confettiBurst()
+                
                 // refresh purchased
                 const tp = await publicClient.readContract({ address: property.sale as `0x${string}`, abi: propertySaleAbi as any, functionName: 'totalPurchased' }) as any
                 setPurchased(tp as bigint)
-              } catch (e) { console.error(e) }
+              } catch (e) { 
+                loader?.remove()
+                console.error(e)
+                toast({
+                  title: "Transaction Failed",
+                  description: "Your purchase could not be completed. Please try again.",
+                  variant: "destructive"
+                })
+              }
             }}
           >
             Approve + Buy

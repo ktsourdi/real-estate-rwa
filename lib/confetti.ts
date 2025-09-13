@@ -1,3 +1,44 @@
+export function showLoading() {
+  if (typeof window === 'undefined') return null
+  
+  const overlay = document.createElement('div')
+  overlay.id = 'tx-loading-overlay'
+  overlay.style.cssText = `
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.7); z-index: 10000;
+    display: flex; align-items: center; justify-content: center;
+  `
+  
+  const loader = document.createElement('div')
+  loader.innerHTML = `
+    <div style="text-align: center; color: white;">
+      <div style="width: 50px; height: 50px; border: 3px solid #333; border-top: 3px solid #10b981; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px;"></div>
+      <div style="font-size: 20px; font-weight: bold;">Processing Transaction...</div>
+      <div style="font-size: 14px; opacity: 0.8; margin-top: 8px;">Please wait for blockchain confirmation</div>
+    </div>
+  `
+  
+  // Add spinner animation
+  if (!document.getElementById('spinner-style')) {
+    const style = document.createElement('style')
+    style.id = 'spinner-style'
+    style.textContent = `
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+    `
+    document.head.appendChild(style)
+  }
+  
+  overlay.appendChild(loader)
+  document.body.appendChild(overlay)
+  
+  return {
+    remove: () => overlay.remove()
+  }
+}
+
 export function confettiBurst() {
   if (typeof window === 'undefined') return
   
