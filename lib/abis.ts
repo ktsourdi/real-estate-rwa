@@ -92,4 +92,14 @@ export const erc20Abi = [
   { "type": "function", "name": "allowance", "stateMutability": "view", "inputs": [{ "type": "address" }, { "type": "address" }], "outputs": [{ "type": "uint256" }] }
 ] as const
 
+export const marketplaceAbi = [
+  { "type": "event", "name": "Listed", "inputs": [ { "name": "id", "type": "uint256", "indexed": true }, { "name": "seller", "type": "address", "indexed": true }, { "name": "token", "type": "address", "indexed": true }, { "name": "amount", "type": "uint256", "indexed": false }, { "name": "pricePerTokenUSD6", "type": "uint256", "indexed": false } ] },
+  { "type": "event", "name": "Purchased", "inputs": [ { "name": "id", "type": "uint256", "indexed": true }, { "name": "buyer", "type": "address", "indexed": true }, { "name": "amount", "type": "uint256", "indexed": false }, { "name": "costUSD6", "type": "uint256", "indexed": false } ] },
+  { "type": "event", "name": "Cancelled", "inputs": [ { "name": "id", "type": "uint256", "indexed": true }, { "name": "seller", "type": "address", "indexed": true }, { "name": "remaining", "type": "uint256", "indexed": false } ] },
+  { "type": "function", "name": "createListing", "stateMutability": "nonpayable", "inputs": [ { "name": "token", "type": "address" }, { "name": "amount", "type": "uint256" }, { "name": "pricePerTokenUSD6", "type": "uint256" }], "outputs": [ { "type": "uint256" } ] },
+  { "type": "function", "name": "buy", "stateMutability": "nonpayable", "inputs": [ { "name": "id", "type": "uint256" }, { "name": "amount", "type": "uint256" } ], "outputs": [] },
+  { "type": "function", "name": "cancel", "stateMutability": "nonpayable", "inputs": [ { "name": "id", "type": "uint256" } ], "outputs": [] },
+  { "type": "function", "name": "listings", "stateMutability": "view", "inputs": [ { "name": "id", "type": "uint256" } ], "outputs": [ { "name": "seller", "type": "address" }, { "name": "token", "type": "address" }, { "name": "remaining", "type": "uint256" }, { "name": "pricePerTokenUSD6", "type": "uint256" } ] }
+] as const
+
 

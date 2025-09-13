@@ -20,6 +20,7 @@ const navigation = [
   { name: 'Properties', href: '/properties', icon: Building },
   { name: 'Portfolio', href: '/portfolio', icon: Briefcase },
   { name: 'Transactions', href: '/transactions', icon: Receipt },
+  { name: 'Marketplace', href: '/marketplace', icon: Briefcase },
 ]
 
 export function Sidebar() {

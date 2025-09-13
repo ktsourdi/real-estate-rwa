@@ -58,6 +58,7 @@ export default function Portfolio() {
     load(); return () => { mounted = false }
   }, [address])
   return (
+    <>
     <DashboardLayout>
       <div className="space-y-8">
         <div>
@@ -145,7 +146,6 @@ export default function Portfolio() {
         </Card>
       </div>
     </DashboardLayout>
-
     {showWithdraw && (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
         <div className="bg-card border border-border/50 rounded-xl p-6 w-[90%] max-w-sm shadow-2xl">
@@ -184,5 +184,6 @@ export default function Portfolio() {
         </div>
       </div>
     )}
+    </>
   )
 }
