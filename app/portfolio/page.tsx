@@ -2,12 +2,14 @@
 
 import { DashboardLayout } from '@/components/layout/dashboard-layout'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Wallet } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useAccount } from 'wagmi'
 import { publicClient } from '@/lib/publicClient'
 import { erc20Abi, propertySaleAbi } from '@/lib/abis'
+import { useToast } from '@/hooks/use-toast'
 
 function loadCatalog() {
   if (typeof window === 'undefined') return [] as any[]
@@ -18,6 +20,10 @@ export default function Portfolio() {
   const { address } = useAccount()
   const [holdings, setHoldings] = useState<any[]>([])
   const [usdBalance, setUsdBalance] = useState<string>('0.00')
+  const [portfolioValue, setPortfolioValue] = useState<string>('0.00')
+  const [showWithdraw, setShowWithdraw] = useState(false)
+  const [withdrawAmt, setWithdrawAmt] = useState('')
+  const { toast } = useToast()
   const computeApy = (seed: string | undefined) => {
     if (!seed) return 8.5
     let x = 0
@@ -33,11 +39,17 @@ export default function Portfolio() {
       // Read purchased amounts from sale (source of truth for ownership in MVP) and enrich with metadata
       const results = await Promise.all(cats.map(async (c: any) => {
         if (!c.sale) return null
-        const bought = await publicClient.readContract({ address: c.sale as `0x${string}`, abi: propertySaleAbi as any, functionName: 'purchased', args: [address] }) as any
-        return { name: c.name, token: c.token, sale: c.sale, tokensOwned: Number(bought), totalTokens: 1000, location: c.location || '', apy: computeApy(c.sale || c.token) }
+        const [bought, ppt] = await Promise.all([
+          publicClient.readContract({ address: c.sale as `0x${string}`, abi: propertySaleAbi as any, functionName: 'purchased', args: [address] }) as Promise<any>,
+          publicClient.readContract({ address: c.sale as `0x${string}`, abi: propertySaleAbi as any, functionName: 'pricePerToken', args: [] }) as Promise<any>,
+        ])
+        const tokensOwned = Number(bought)
+        const value = (Number(ppt) * tokensOwned) / 1e6
+        return { name: c.name, token: c.token, sale: c.sale, tokensOwned, totalTokens: 1000, location: c.location || '', apy: computeApy(c.sale || c.token), value }
       }))
       const filtered = results.filter(Boolean) as any[]
       if (mounted) setHoldings(filtered)
+      if (mounted) setPortfolioValue(filtered.reduce((sum, h: any) => sum + (h.value || 0), 0).toFixed(2))
       // USD balance
       const usd = process.env.NEXT_PUBLIC_USD as `0x${string}`
       const usdBal = await publicClient.readContract({ address: usd, abi: erc20Abi as any, functionName: 'balanceOf', args: [address] }) as any
@@ -69,6 +81,20 @@ export default function Portfolio() {
                 {usdBalance} dUSD
               </div>
               <p className="text-xs text-muted-foreground mt-1">Available for investment</p>
+              <div className="mt-4">
+                <Button size="sm" className="gradient-emerald text-white border-0" onClick={() => setShowWithdraw(true)}>Withdraw</Button>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="bg-card/50 backdrop-blur-sm border-border/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Portfolio Value</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 dark:from-slate-100 dark:to-slate-300 bg-clip-text text-transparent">
+                ${portfolioValue}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">Current value of property tokens</p>
             </CardContent>
           </Card>
         </div>
@@ -119,5 +145,44 @@ export default function Portfolio() {
         </Card>
       </div>
     </DashboardLayout>
+
+    {showWithdraw && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+        <div className="bg-card border border-border/50 rounded-xl p-6 w-[90%] max-w-sm shadow-2xl">
+          <h3 className="font-semibold text-lg mb-2">Withdraw Cash</h3>
+          <p className="text-sm text-muted-foreground mb-4">Enter the amount of dUSD to withdraw. A request will be submitted for off‑chain processing.</p>
+          <input
+            className="w-full border rounded px-3 py-2 text-sm bg-background mb-3"
+            placeholder="Amount in dUSD"
+            value={withdrawAmt}
+            onChange={(e) => setWithdrawAmt(e.target.value)}
+          />
+          <div className="flex gap-2 justify-end">
+            <Button variant="outline" onClick={() => setShowWithdraw(false)}>Cancel</Button>
+            <Button
+              className="gradient-emerald text-white border-0"
+              onClick={() => {
+                const n = Number(withdrawAmt)
+                if (!withdrawAmt || Number.isNaN(n) || n <= 0) {
+                  toast({ title: 'Invalid amount', description: 'Enter a positive number.' , variant: 'destructive'})
+                  return
+                }
+                if (n > Number(usdBalance)) {
+                  toast({ title: 'Insufficient balance', description: 'Amount exceeds wallet balance.', variant: 'destructive' })
+                  return
+                }
+                const reqsKey = 'rwa_withdraw_requests'
+                const existing = JSON.parse(localStorage.getItem(reqsKey) || '[]')
+                existing.unshift({ ts: Date.now(), amount: n })
+                localStorage.setItem(reqsKey, JSON.stringify(existing))
+                setShowWithdraw(false)
+                setWithdrawAmt('')
+                toast({ title: 'Withdrawal requested', description: `Request submitted for ${n.toFixed(2)} dUSD.` })
+              }}
+            >Submit</Button>
+          </div>
+        </div>
+      </div>
+    )}
   )
 }
