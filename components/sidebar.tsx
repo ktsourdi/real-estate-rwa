@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { useAccount } from 'wagmi'
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: Home },
@@ -24,6 +25,9 @@ const navigation = [
 export function Sidebar() {
   const [isOpen, setIsOpen] = useState(false)
   const pathname = usePathname()
+  const { address } = useAccount()
+  const admin = (process.env.NEXT_PUBLIC_ADMIN_ADDRESS || '').toLowerCase()
+  const isAdmin = address && admin && address.toLowerCase() === admin
 
   return (
     <>
@@ -59,7 +63,7 @@ export function Sidebar() {
           {/* Navigation */}
           <nav className="flex-1 px-4 py-6">
             <ul className="space-y-2">
-              {navigation.map((item) => {
+              {[...navigation, ...(isAdmin ? [{ name: 'Admin', href: '/admin', icon: Briefcase }] : [])].map((item) => {
                 const isActive = pathname === item.href
                 return (
                   <li key={item.name}>
