@@ -7,6 +7,7 @@ import { Building, TrendingUp, Wallet, Receipt } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useAccount } from 'wagmi'
 import { publicClient } from '@/lib/publicClient'
+import { decodeEventLog } from 'viem'
 import { propertySaleAbi } from '@/lib/abis'
 
 function loadCatalog() {
@@ -35,7 +36,7 @@ export default function Dashboard() {
           const logs = await publicClient.getLogs({ address: c.sale as `0x${string}`, fromBlock: 'earliest', toBlock: 'latest' })
           for (const log of logs) {
             try {
-              const parsed = publicClient.decodeEventLog({ abi: propertySaleAbi as any, data: log.data, topics: log.topics }) as any
+              const parsed = decodeEventLog({ abi: propertySaleAbi as any, data: log.data, topics: log.topics }) as any
               if (parsed.eventName === 'Purchased' && parsed.args?.buyer?.toLowerCase() === address?.toLowerCase()) {
                 const cost = Number(parsed.args.cost) / 1e6
                 total += cost
