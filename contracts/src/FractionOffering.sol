@@ -22,7 +22,6 @@ contract FractionOffering is Ownable {
     uint256 public immutable pricePerFraction; // in USD decimals
     uint256 public immutable maxFractions;
     uint256 public immutable softCapFractions; // minimum to settle
-    uint256 public immutable deadline; // timestamp
 
     uint256 public totalPurchased;
     mapping(address => uint256) public purchased;
@@ -40,8 +39,7 @@ contract FractionOffering is Ownable {
         address fractions_,
         uint256 pricePerFraction_,
         uint256 maxFractions_,
-        uint256 softCapFractions_,
-        uint256 deadline_
+        uint256 softCapFractions_
     ) Ownable(owner_) {
         usd = IERC20(usdToken);
         deed = IERC721(deed_);
@@ -50,18 +48,14 @@ contract FractionOffering is Ownable {
         pricePerFraction = pricePerFraction_;
         maxFractions = maxFractions_;
         softCapFractions = softCapFractions_;
-        deadline = deadline_;
     }
 
     function status() public view returns (Status) {
-        if (totalPurchased >= softCapFractions && block.timestamp >= deadline) return Status.Settled;
-        if (block.timestamp < deadline) return Status.Active;
-        if (totalPurchased < softCapFractions && block.timestamp >= deadline) return Status.Refunding;
-        return Status.Pending;
+        // Simplified: Active by default; success determined at settle-time
+        return Status.Active;
     }
 
     function buy(uint256 fractionsToBuy) external {
-        require(block.timestamp < deadline, "ended");
         require(totalPurchased + fractionsToBuy <= maxFractions, "exceeds");
         uint256 cost = fractionsToBuy * pricePerFraction;
         purchased[msg.sender] += fractionsToBuy;
@@ -73,9 +67,7 @@ contract FractionOffering is Ownable {
     /// @notice Settle the offering: mint fractions to buyers pro-rata and escrow proceeds to owner.
     /// Simple mint: buyers claim directly. Owner receives USD.
     function settle() external {
-        require(block.timestamp >= deadline, "not ended");
         require(totalPurchased >= softCapFractions, "below soft cap");
-        require(status() == Status.Settled, "not settled");
         // Mint purchased fractions to buyers when they call claim.
         // Transfer USD to owner.
         uint256 proceeds = totalPurchased * pricePerFraction;
@@ -84,7 +76,6 @@ contract FractionOffering is Ownable {
     }
 
     function claim() external {
-        require(block.timestamp >= deadline, "not ended");
         require(totalPurchased >= softCapFractions, "below soft cap");
         uint256 amount = purchased[msg.sender];
         require(amount > 0, "none");
@@ -93,7 +84,6 @@ contract FractionOffering is Ownable {
     }
 
     function refund() external {
-        require(block.timestamp >= deadline, "not ended");
         require(totalPurchased < softCapFractions, "above soft cap");
         uint256 amount = purchased[msg.sender];
         require(amount > 0, "none");

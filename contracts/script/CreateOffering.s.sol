@@ -25,8 +25,7 @@ contract CreateOffering is Script {
             symbol,
             price,
             max,
-            softCap,
-            deadline
+            softCap
         );
         vm.stopBroadcast();
 

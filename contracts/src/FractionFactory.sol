@@ -31,8 +31,7 @@ contract FractionFactory is Ownable {
         string memory fractionSymbol,
         uint256 pricePerFraction,
         uint256 maxFractions,
-        uint256 softCapFractions,
-        uint256 deadline
+        uint256 softCapFractions
     ) external returns (address fractions, address offering) {
         // Ensure caller owns the deed
         require(IERC721(deedContract).ownerOf(deedId) == msg.sender, "not owner");
@@ -55,15 +54,13 @@ contract FractionFactory is Ownable {
             address(f),
             pricePerFraction,
             maxFractions,
-            softCapFractions,
-            deadline
+            softCapFractions
         );
 
         // Transfer FractionToken ownership to Offering so it can mint on claim
         f.transferOwnership(address(o));
 
-        // Lock deed on the Deed contract so that it cannot be transferred while offering/fractions exist
-        RealEstateDeed(deedContract).setLocker(deedId, address(o));
+        // Note: no deed locking in MVP
 
         emit OfferingCreated(msg.sender, deedContract, deedId, address(f), address(o));
         return (address(f), address(o));

@@ -55,7 +55,6 @@ contract FractionOffering is Ownable {
     uint256 public immutable pricePerFraction; // in USD decimals
     uint256 public immutable maxFractions;
     uint256 public immutable softCapFractions;
-    uint256 public immutable deadline;
     uint256 public totalPurchased;
     mapping(address => uint256) public purchased;
     event Purchased(address indexed buyer, uint256 fractions, uint256 amountUSD);
@@ -63,7 +62,7 @@ contract FractionOffering is Ownable {
     event Refunded(address indexed buyer, uint256 fractions, uint256 amountUSD);
     constructor(
         address owner_, address usdToken, address deed_, uint256 deedId_, address fractions_,
-        uint256 pricePerFraction_, uint256 maxFractions_, uint256 softCapFractions_, uint256 deadline_
+        uint256 pricePerFraction_, uint256 maxFractions_, uint256 softCapFractions_
     ) Ownable(owner_) {
         usd = IERC20(usdToken);
         deed = RealEstateDeed(deed_);
@@ -72,14 +71,9 @@ contract FractionOffering is Ownable {
         pricePerFraction = pricePerFraction_;
         maxFractions = maxFractions_;
         softCapFractions = softCapFractions_;
-        deadline = deadline_;
     }
-    function status() public view returns (Status) {
-        if (block.timestamp < deadline) return Status.Active;
-        return totalPurchased >= softCapFractions ? Status.Settled : Status.Refunding;
-    }
+    function status() public view returns (Status) { return Status.Active; }
     function buy(uint256 fractionsToBuy) external {
-        require(block.timestamp < deadline, "ended");
         require(totalPurchased + fractionsToBuy <= maxFractions, "exceeds");
         uint256 cost = fractionsToBuy * pricePerFraction;
         purchased[msg.sender] += fractionsToBuy;
@@ -88,14 +82,12 @@ contract FractionOffering is Ownable {
         emit Purchased(msg.sender, fractionsToBuy, cost);
     }
     function settle() external {
-        require(block.timestamp >= deadline, "not ended");
         require(totalPurchased >= softCapFractions, "below soft cap");
         uint256 proceeds = totalPurchased * pricePerFraction;
         usd.safeTransfer(owner(), proceeds);
         emit Settled(totalPurchased, proceeds);
     }
     function claim() external {
-        require(block.timestamp >= deadline, "not ended");
         require(totalPurchased >= softCapFractions, "below soft cap");
         uint256 amount = purchased[msg.sender];
         require(amount > 0, "none");
@@ -103,7 +95,6 @@ contract FractionOffering is Ownable {
         fractions.mint(msg.sender, amount);
     }
     function refund() external {
-        require(block.timestamp >= deadline, "not ended");
         require(totalPurchased < softCapFractions, "above soft cap");
         uint256 amount = purchased[msg.sender];
         require(amount > 0, "none");
@@ -122,11 +113,11 @@ contract FractionFactory is Ownable {
     function createOffering(
         address deedContract, uint256 deedId,
         string memory fractionName, string memory fractionSymbol,
-        uint256 pricePerFraction, uint256 maxFractions, uint256 softCapFractions, uint256 deadline
+        uint256 pricePerFraction, uint256 maxFractions, uint256 softCapFractions
     ) external returns (address fractions, address offering) {
         require(ERC721(deedContract).ownerOf(deedId) == msg.sender, "not owner");
         FractionToken f = new FractionToken(fractionName, fractionSymbol, msg.sender, deedContract, deedId);
-        FractionOffering o = new FractionOffering(msg.sender, usd, deedContract, deedId, address(f), pricePerFraction, maxFractions, softCapFractions, deadline);
+        FractionOffering o = new FractionOffering(msg.sender, usd, deedContract, deedId, address(f), pricePerFraction, maxFractions, softCapFractions);
         f.transferOwnership(address(o));
         emit OfferingCreated(msg.sender, deedContract, deedId, address(f), address(o));
         return (address(f), address(o));
