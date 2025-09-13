@@ -6,10 +6,11 @@ import { Badge } from '@/components/ui/badge'
 import { TrendingUp } from 'lucide-react'
 import Image from 'next/image'
 import { useEffect, useState } from 'react'
-import { useWriteContract } from 'wagmi'
+import { useAccount, useWriteContract } from 'wagmi'
 import { erc20Abi, propertySaleAbi } from '@/lib/abis'
 import { createPublicClient, http } from 'viem'
 import { sepolia } from 'viem/chains'
+import { useToast } from '@/hooks/use-toast'
 
 function loadCatalog() {
   if (typeof window === 'undefined') return [] as any[]
@@ -47,6 +48,8 @@ function PropertyCard({ property, writeContractAsync }: { property: any, writeCo
   const [amount, setAmount] = useState<string>('1')
   const MAX = 1000n
   const image = 'https://images.pexels.com/photos/106399/pexels-photo-106399.jpeg'
+  const { address } = useAccount()
+  const { toast } = useToast()
 
   useEffect(() => {
     let mounted = true
@@ -114,15 +117,20 @@ function PropertyCard({ property, writeContractAsync }: { property: any, writeCo
           <Button className="flex-1 gradient-emerald hover:shadow-lg hover:shadow-emerald-500/25 transition-all duration-300 text-white border-0 hover:scale-[1.02]"
             onClick={async () => {
               try {
-                if (!property.sale || price === null) return
+                if (!property.sale || price === null || !address) return
                 const amt = BigInt(parseInt(amount || '0'))
                 if (amt <= 0n) return
                 const allowance = price * amt
                 const usd = process.env.NEXT_PUBLIC_USD as `0x${string}`
+                const client = createPublicClient({ chain: sepolia, transport: http(process.env.NEXT_PUBLIC_RPC_URL) })
+                const bal = await client.readContract({ address: usd, abi: erc20Abi as any, functionName: 'balanceOf', args: [address] }) as any
+                if ((bal as bigint) < allowance) {
+                  toast({ title: 'Insufficient USD', description: 'Not enough USD balance to buy this amount.', variant: 'destructive' })
+                  return
+                }
                 await writeContractAsync({ address: usd, abi: erc20Abi, functionName: 'approve', args: [property.sale as `0x${string}`, allowance] })
                 await writeContractAsync({ address: property.sale as `0x${string}`, abi: propertySaleAbi, functionName: 'buy', args: [amt] })
                 // refresh purchased
-                const client = createPublicClient({ chain: sepolia, transport: http(process.env.NEXT_PUBLIC_RPC_URL) })
                 const tp = await client.readContract({ address: property.sale as `0x${string}`, abi: propertySaleAbi as any, functionName: 'totalPurchased' }) as any
                 setPurchased(tp as bigint)
               } catch (e) { console.error(e) }
