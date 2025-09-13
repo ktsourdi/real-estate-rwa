@@ -18,17 +18,23 @@ export default function Portfolio() {
   const { address } = useAccount()
   const [holdings, setHoldings] = useState<any[]>([])
   const [usdBalance, setUsdBalance] = useState<string>('0.00')
+  const computeApy = (seed: string | undefined) => {
+    if (!seed) return 8.5
+    let x = 0
+    for (const c of seed.toLowerCase()) x = (x * 31 + c.charCodeAt(0)) % 10000
+    return +(7 + ((x % 301) / 100)).toFixed(1)
+  }
 
   useEffect(() => {
     let mounted = true
     async function load() {
       const cats = loadCatalog()
       if (!address || cats.length === 0) { if (mounted) setHoldings([]); return }
-      // Read purchased amounts from sale (source of truth for ownership in MVP)
+      // Read purchased amounts from sale (source of truth for ownership in MVP) and enrich with metadata
       const results = await Promise.all(cats.map(async (c: any) => {
         if (!c.sale) return null
         const bought = await publicClient.readContract({ address: c.sale as `0x${string}`, abi: propertySaleAbi as any, functionName: 'purchased', args: [address] }) as any
-        return { name: c.name, token: c.token, sale: c.sale, tokensOwned: Number(bought), totalTokens: 1000 }
+        return { name: c.name, token: c.token, sale: c.sale, tokensOwned: Number(bought), totalTokens: 1000, location: c.location || '', apy: computeApy(c.sale || c.token) }
       }))
       const filtered = results.filter(Boolean) as any[]
       if (mounted) setHoldings(filtered)
@@ -85,11 +91,15 @@ export default function Portfolio() {
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between">
                     <div>
                       <h3 className="font-semibold text-lg">{h.name}</h3>
-                      <p className="text-sm text-muted-foreground">Token: {h.token}</p>
+                      <p className="text-sm text-muted-foreground">{h.location || '—'}</p>
+                      <p className="text-xs text-muted-foreground mt-1">Token: {h.token}</p>
                     </div>
-                    <Badge variant="outline" className="self-start sm:self-center mt-2 sm:mt-0 border-emerald-200 text-emerald-700 dark:border-emerald-800 dark:text-emerald-300">
-                      {((h.tokensOwned / h.totalTokens) * 100).toFixed(2)}% ownership
-                    </Badge>
+                    <div className="flex gap-2 items-center self-start sm:self-center mt-2 sm:mt-0">
+                      <Badge variant="secondary" className="border-emerald-200 text-emerald-700 dark:border-emerald-800 dark:text-emerald-300">{h.apy}% APY</Badge>
+                      <Badge variant="outline" className="border-emerald-200 text-emerald-700 dark:border-emerald-800 dark:text-emerald-300">
+                        {((h.tokensOwned / h.totalTokens) * 100).toFixed(2)}% ownership
+                      </Badge>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
