@@ -77,7 +77,7 @@ export default function MarketplacePage() {
                 try {
                   if (!address || !form.saleOrToken || !form.amount || !form.price) return
                   const amount = BigInt(parseInt(form.amount))
-                  if (amount <= 0n) return
+                  if (amount <= BigInt(0)) return
                   const price6 = BigInt(Math.round(Number(form.price) * 1e6))
                   // Approve marketplace to transfer user's tokens
                   await writeContractAsync({ address: form.saleOrToken as `0x${string}`, abi: erc20Abi, functionName: 'approve', args: [MARKETPLACE, amount] })
