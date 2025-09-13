@@ -67,7 +67,7 @@ function PropertyCard({ property, writeContractAsync }: { property: any, writeCo
     load(); return () => { mounted = false }
   }, [property.sale, property.token, address])
 
-  const soldPct = purchased !== null ? Number((purchased * 100n) / MAX) : 0
+  const soldPct = purchased !== null ? Number((purchased * BigInt(100)) / MAX) : 0
   const priceStr = price !== null ? (Number(price) / 1e6).toFixed(2) : '-'
 
   return (
@@ -120,7 +120,7 @@ function PropertyCard({ property, writeContractAsync }: { property: any, writeCo
               try {
                 if (!property.sale || price === null || !address) return
                 const amt = BigInt(parseInt(amount || '0'))
-                if (amt <= 0n) return
+                if (amt <= BigInt(0)) return
                 const allowance = price * amt
                 const usd = process.env.NEXT_PUBLIC_USD as `0x${string}`
                 const bal = await publicClient.readContract({ address: usd, abi: erc20Abi as any, functionName: 'balanceOf', args: [address] }) as any
