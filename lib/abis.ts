@@ -43,6 +43,18 @@ export const fractionFactoryAbi = [
 // ERC20-only flow ABIs
 export const propertyFactoryAbi = [
   {
+    "type": "event",
+    "name": "SaleCreated",
+    "inputs": [
+      { "name": "issuer", "type": "address", "indexed": true },
+      { "name": "token", "type": "address", "indexed": false },
+      { "name": "sale", "type": "address", "indexed": false },
+      { "name": "name", "type": "string", "indexed": false },
+      { "name": "symbol", "type": "string", "indexed": false },
+      { "name": "pricePerToken", "type": "uint256", "indexed": false }
+    ]
+  },
+  {
     "type": "function",
     "name": "createSale",
     "stateMutability": "nonpayable",

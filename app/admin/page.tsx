@@ -4,6 +4,9 @@ import { useState } from 'react'
 import { useAccount, useWriteContract } from 'wagmi'
 import { parseUnits } from 'viem'
 import { propertyFactoryAbi } from '@/lib/abis'
+import { useEffect } from 'react'
+import { createPublicClient, http } from 'viem'
+import { sepolia } from 'viem/chains'
 import { DashboardLayout } from '@/components/layout/dashboard-layout'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -93,7 +96,40 @@ export default function AdminPage() {
                   functionName: 'createSale',
                   args: [name, symbol, total],
                 })
-                toast({ title: 'Sale created', description: `Tx: ${String(hash).slice(0,10)}…` })
+                toast({ title: 'Sale submitted', description: `Tx: ${String(hash).slice(0,10)}… listening for event…` })
+
+                // Listen for the SaleCreated event and stash to localStorage as a simple catalog
+                const client = createPublicClient({ chain: sepolia, transport: http(process.env.NEXT_PUBLIC_RPC_URL) })
+                const logs = await client.getLogs({
+                  address: FACTORY,
+                  event: {
+                    type: 'event',
+                    name: 'SaleCreated',
+                    inputs: [
+                      { name: 'issuer', type: 'address', indexed: true },
+                      { name: 'token', type: 'address' },
+                      { name: 'sale', type: 'address' },
+                      { name: 'ename', type: 'string' },
+                      { name: 'esymbol', type: 'string' },
+                      { name: 'pricePerToken', type: 'uint256' },
+                    ]
+                  } as any,
+                  fromBlock: 'latest',
+                  toBlock: 'latest'
+                }).catch(() => [])
+
+                const catalogKey = 'rwa_catalog'
+                const existing = JSON.parse(localStorage.getItem(catalogKey) || '[]')
+                // Fallback: if no logs yet, still push a placeholder; frontend can refresh later
+                const item = {
+                  name,
+                  symbol,
+                  totalPrice: String(offerForm.totalPrice),
+                  token: logs?.[0]?.args?.token || null,
+                  sale: logs?.[0]?.args?.sale || null,
+                }
+                localStorage.setItem(catalogKey, JSON.stringify([item, ...existing]))
+                toast({ title: 'Sale created', description: 'Property was added to the catalog.' })
               } catch (e: any) {
                 toast({ title: 'Create failed', description: e?.message || 'Error', variant: 'destructive' })
               }
