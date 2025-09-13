@@ -16,6 +16,7 @@ type TxRow = {
   tokens: number | '-' 
   amountUsd: string
   status: 'completed'
+  hash: string
 }
 
 function loadCatalog() {
@@ -27,10 +28,12 @@ export default function Transactions() {
   const { address } = useAccount()
   const [rows, setRows] = useState<TxRow[]>([])
   const [total, setTotal] = useState<number>(0)
+  const [loading, setLoading] = useState<boolean>(false)
 
   useEffect(() => {
     let mounted = true
     async function load() {
+      setLoading(true)
       if (!address) { if (mounted) { setRows([]); setTotal(0) } ; return }
       const catalog = loadCatalog()
       // Fetch logs for each sale where buyer is the user
@@ -62,7 +65,8 @@ export default function Transactions() {
                   type: 'Buy',
                   tokens: amount,
                   amountUsd: `$${cost.toFixed(2)}`,
-                  status: 'completed'
+                  status: 'completed',
+                  hash: String((log as any).transactionHash || '')
                 })
               } else if (parsed.eventName === 'Refunded' && parsed.args?.buyer?.toLowerCase() === address.toLowerCase()) {
                 const refund = Number(parsed.args.refund) / 1e6
@@ -74,7 +78,8 @@ export default function Transactions() {
                   type: 'Refund',
                   tokens: '-',
                   amountUsd: `-$${refund.toFixed(2)}`,
-                  status: 'completed'
+                  status: 'completed',
+                  hash: String((log as any).transactionHash || '')
                 })
               }
             } catch {}
@@ -83,6 +88,7 @@ export default function Transactions() {
       }
       all.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       if (mounted) { setRows(all); setTotal(totalUsd) }
+      setLoading(false)
     }
     load(); return () => { mounted = false }
   }, [address])
@@ -112,22 +118,34 @@ export default function Transactions() {
               <div className="col-span-4">Property</div>
               <div className="col-span-2">Type</div>
               <div className="col-span-2">Tokens</div>
-              <div className="col-span-2">Amount</div>
+              <div className="col-span-1">Amount</div>
+              <div className="col-span-1 text-right">Tx</div>
             </div>
-            <div className="divide-y">
-              {rows.map((r, i) => (
-                <div key={i} className="grid grid-cols-12 py-3 items-center">
-                  <div className="col-span-2 text-sm">{r.date}</div>
-                  <div className="col-span-4 text-sm">{r.property}</div>
-                  <div className="col-span-2"><Badge variant={r.type === 'Buy' ? 'secondary' : 'outline'}>{r.type}</Badge></div>
-                  <div className="col-span-2 text-sm">{r.tokens}</div>
-                  <div className="col-span-2 text-sm">{r.amountUsd}</div>
-                </div>
-              ))}
-              {rows.length === 0 && (
-                <div className="py-8 text-sm text-muted-foreground">No transactions yet.</div>
-              )}
-            </div>
+            {loading ? (
+              <div className="py-8 text-sm text-muted-foreground">Loading transactions…</div>
+            ) : (
+              <div className="divide-y">
+                {rows.map((r, i) => (
+                  <div key={i} className="grid grid-cols-12 py-3 items-center">
+                    <div className="col-span-2 text-sm">{r.date}</div>
+                    <div className="col-span-4 text-sm">{r.property}</div>
+                    <div className="col-span-2"><Badge variant={r.type === 'Buy' ? 'secondary' : 'outline'}>{r.type}</Badge></div>
+                    <div className="col-span-2 text-sm">{r.tokens}</div>
+                    <div className="col-span-1 text-sm">{r.amountUsd}</div>
+                    <div className="col-span-1 text-right">
+                      {r.hash ? (
+                        <a className="text-emerald-600 hover:underline" href={`https://sepolia.etherscan.io/tx/${r.hash}`} target="_blank" rel="noreferrer">View</a>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {!loading && rows.length === 0 && (
+                  <div className="py-8 text-sm text-muted-foreground">No transactions yet.</div>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
