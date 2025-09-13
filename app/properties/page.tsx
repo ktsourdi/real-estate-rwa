@@ -46,7 +46,7 @@ function PropertyCard({ property, writeContractAsync }: { property: any, writeCo
   const [price, setPrice] = useState<bigint | null>(null)
   const [purchased, setPurchased] = useState<bigint | null>(null)
   const [amount, setAmount] = useState<string>('1')
-  const MAX = 1000n
+  const MAX = BigInt(1000)
   const image = 'https://images.pexels.com/photos/106399/pexels-photo-106399.jpeg'
   const { address } = useAccount()
   const { toast } = useToast()
