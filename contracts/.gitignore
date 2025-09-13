@@ -1,0 +1,14 @@
+# contracts/.gitignore
+
+# Foundry dependencies and build artifacts
+lib/
+cache/
+out/
+
+# Optional: ignore deployment logs if you don't want them in git
+broadcast/
+
+# Misc
+*.gas-snapshot
+.DS_Store
+.env
