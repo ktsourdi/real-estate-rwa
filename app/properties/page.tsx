@@ -57,8 +57,8 @@ function PropertyCard({ property, writeContractAsync }: { property: any, writeCo
       if (!property.sale) return
       try {
         const [pp, tp] = await Promise.all([
-          publicClient.readContract({ address: property.sale as `0x${string}`, abi: propertySaleAbi as any, functionName: 'pricePerToken' }) as Promise<any>,
-          publicClient.readContract({ address: property.sale as `0x${string}`, abi: propertySaleAbi as any, functionName: 'totalPurchased' }) as Promise<any>,
+          publicClient.readContract({ address: property.sale as `0x${string}`, abi: propertySaleAbi as any, functionName: 'pricePerToken', args: [] }) as Promise<any>,
+          publicClient.readContract({ address: property.sale as `0x${string}`, abi: propertySaleAbi as any, functionName: 'totalPurchased', args: [] }) as Promise<any>,
         ])
         if (mounted) { setPrice(pp as bigint); setPurchased(tp as bigint) }
         // Claim disabled by business rules; do not fetch token balance
@@ -137,7 +137,7 @@ function PropertyCard({ property, writeContractAsync }: { property: any, writeCo
                 confettiBurst()
                 
                 // refresh purchased
-                const tp = await publicClient.readContract({ address: property.sale as `0x${string}`, abi: propertySaleAbi as any, functionName: 'totalPurchased' }) as any
+                const tp = await publicClient.readContract({ address: property.sale as `0x${string}`, abi: propertySaleAbi as any, functionName: 'totalPurchased', args: [] }) as any
                 setPurchased(tp as bigint)
               } catch (e) { 
                 loader?.remove()
