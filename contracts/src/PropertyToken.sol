@@ -12,6 +12,10 @@ contract PropertyToken is ERC20, Ownable {
         Ownable(owner_)
     {}
 
+    function decimals() public pure override returns (uint8) {
+        return 6; // keep UI math consistent with USD 6dp for MVP
+    }
+
     function mint(address to, uint256 amount) external onlyOwner {
         _mint(to, amount);
     }

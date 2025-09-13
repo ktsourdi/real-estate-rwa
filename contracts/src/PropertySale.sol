@@ -50,7 +50,9 @@ contract PropertySale is Ownable {
         uint256 amount = purchased[msg.sender];
         require(amount > 0, "none");
         purchased[msg.sender] = 0;
-        token.mint(msg.sender, amount);
+        // Scale to token decimals so 1 = one whole token
+        uint256 scale = 10 ** uint256(token.decimals());
+        token.mint(msg.sender, amount * scale);
     }
 
     function refund() external onlyOwner {

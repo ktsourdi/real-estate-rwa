@@ -45,6 +45,7 @@ export default function Properties() {
 function PropertyCard({ property, writeContractAsync }: { property: any, writeContractAsync: any }) {
   const [price, setPrice] = useState<bigint | null>(null)
   const [purchased, setPurchased] = useState<bigint | null>(null)
+  const [owned, setOwned] = useState<bigint | null>(null)
   const [amount, setAmount] = useState<string>('1')
   const MAX = 1000n
   const image = 'https://images.pexels.com/photos/106399/pexels-photo-106399.jpeg'
@@ -62,10 +63,14 @@ function PropertyCard({ property, writeContractAsync }: { property: any, writeCo
           client.readContract({ address: property.sale as `0x${string}`, abi: propertySaleAbi as any, functionName: 'totalPurchased' }) as Promise<any>,
         ])
         if (mounted) { setPrice(pp as bigint); setPurchased(tp as bigint) }
+        if (property.token && address) {
+          const bal = await client.readContract({ address: property.token as `0x${string}`, abi: erc20Abi as any, functionName: 'balanceOf', args: [address] }) as any
+          if (mounted) setOwned(bal as bigint)
+        }
       } catch {}
     }
     load(); return () => { mounted = false }
-  }, [property.sale])
+  }, [property.sale, property.token, address])
 
   const soldPct = purchased !== null ? Number((purchased * 100n) / MAX) : 0
   const priceStr = price !== null ? (Number(price) / 1e6).toFixed(2) : '-'
@@ -112,6 +117,10 @@ function PropertyCard({ property, writeContractAsync }: { property: any, writeCo
           <p className="text-xs text-muted-foreground font-medium">{soldPct}% funded</p>
         </div>
 
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">Owned: {owned !== null ? Number(owned).toString() : '-'}</span>
+        </div>
+
         <div className="flex gap-2">
           <input className="w-24 border rounded px-3 py-2 text-sm bg-background" value={amount} onChange={(e) => setAmount(e.target.value)} />
           <Button className="flex-1 gradient-emerald hover:shadow-lg hover:shadow-emerald-500/25 transition-all duration-300 text-white border-0 hover:scale-[1.02]"
@@ -137,6 +146,22 @@ function PropertyCard({ property, writeContractAsync }: { property: any, writeCo
             }}
           >
             Approve + Buy
+          </Button>
+          <Button variant="outline"
+            onClick={async () => {
+              try {
+                if (!property.sale) return
+                await writeContractAsync({ address: property.sale as `0x${string}`, abi: propertySaleAbi, functionName: 'claim', args: [] })
+                // refresh owned
+                const client = createPublicClient({ chain: sepolia, transport: http(process.env.NEXT_PUBLIC_RPC_URL) })
+                if (property.token && address) {
+                  const bal = await client.readContract({ address: property.token as `0x${string}`, abi: erc20Abi as any, functionName: 'balanceOf', args: [address] }) as any
+                  setOwned(bal as bigint)
+                }
+              } catch (e) { console.error(e) }
+            }}
+          >
+            Claim
           </Button>
         </div>
       </CardContent>
