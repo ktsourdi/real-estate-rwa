@@ -48,7 +48,7 @@ function PropertyCard({ property, writeContractAsync }: { property: any, writeCo
   const [owned, setOwned] = useState<bigint | null>(null)
   const [amount, setAmount] = useState<string>('1')
   const MAX = BigInt(1000)
-  const image = property.image || 'https://images.pexels.com/photos/106399/pexels-photo-106399.jpeg'
+  const image = 'https://images.pexels.com/photos/106399/pexels-photo-106399.jpeg'
   const { address } = useAccount()
   const { toast } = useToast()
 
@@ -82,7 +82,9 @@ function PropertyCard({ property, writeContractAsync }: { property: any, writeCo
         <Image src={image} alt={property.name || 'Property'} fill className="object-cover group-hover:scale-110 transition-transform duration-700" />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
         <div className="absolute top-4 right-4 z-10">
-          <Badge variant="secondary" className="glass-effect text-white border-white/20 shadow-lg">ERC20 Sale</Badge>
+          {property.location ? (
+            <Badge variant="secondary" className="glass-effect text-white border-white/20 shadow-lg">{property.location}</Badge>
+          ) : null}
         </div>
       </div>
 
