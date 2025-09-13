@@ -58,7 +58,7 @@ export function confettiBurst() {
       ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fill()
     })
     const now = Date.now()
-    if (now < end) requestAnimationFrame(tick) else cleanup()
+    if (now < end) requestAnimationFrame(tick); else cleanup()
   }
 
   const cleanup = () => {
