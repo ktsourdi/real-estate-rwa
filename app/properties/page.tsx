@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { TrendingUp } from 'lucide-react'
 import Image from 'next/image'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useAccount, useWriteContract } from 'wagmi'
 import { erc20Abi, propertySaleAbi } from '@/lib/abis'
 import { publicClient } from '@/lib/publicClient'
@@ -19,7 +19,8 @@ function loadCatalog() {
 }
 
 export default function Properties() {
-  const [catalog, setCatalog] = useState<any[]>([])
+  const [baseCatalog, setBaseCatalog] = useState<any[]>([])
+  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest')
   const { writeContractAsync } = useWriteContract()
 
   useEffect(() => {
@@ -27,29 +28,46 @@ export default function Properties() {
     async function init() {
       const local = loadCatalog()
       if (local.length > 0) { 
-        // Sort local catalog with newest first (reverse order since items are added with unshift)
-        const sorted = [...local].reverse()
-        if (mounted) setCatalog(sorted)
+        // Local storage is newest-first; store as chronological ascending for consistent sorting
+        const chronological = [...local].reverse()
+        if (mounted) setBaseCatalog(chronological)
         return 
       }
       // Fallback: rebuild from chain if localStorage empty
       try {
         const rebuilt = await rebuildCatalogFromChain()
-        // Chain data comes in chronological order, reverse for newest first
-        const sorted = [...rebuilt].reverse()
-        if (mounted) setCatalog(sorted)
-      } catch { if (mounted) setCatalog([]) }
+        // Chain data comes in chronological order; keep ascending
+        if (mounted) setBaseCatalog(rebuilt)
+      } catch { if (mounted) setBaseCatalog([]) }
     }
     init(); return () => { mounted = false }
   }, [])
+
+  const catalog = useMemo(() => {
+    if (sortOrder === 'newest') return [...baseCatalog].reverse()
+    return baseCatalog
+  }, [baseCatalog, sortOrder])
   return (
     <DashboardLayout>
       <div className="space-y-8">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight">Properties</h2>
-          <p className="text-muted-foreground mt-2">
-            Discover and invest in tokenized real estate opportunities.
-          </p>
+        <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
+          <div>
+            <h2 className="text-3xl font-bold tracking-tight">Properties</h2>
+            <p className="text-muted-foreground mt-2">
+              Discover and invest in tokenized real estate opportunities.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-muted-foreground">Sort by</label>
+            <select
+              className="border rounded px-3 py-2 bg-background"
+              value={sortOrder}
+              onChange={(e) => setSortOrder(e.target.value as any)}
+            >
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+            </select>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
