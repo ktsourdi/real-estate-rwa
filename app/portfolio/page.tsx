@@ -44,6 +44,7 @@ export default function Portfolio() {
           publicClient.readContract({ address: c.sale as `0x${string}`, abi: propertySaleAbi as any, functionName: 'pricePerToken', args: [] }) as Promise<any>,
         ])
         const tokensOwned = Number(bought)
+        if (tokensOwned <= 0) return null
         const value = (Number(ppt) * tokensOwned) / 1e6
         return { name: c.name, token: c.token, sale: c.sale, tokensOwned, totalTokens: 1000, location: c.location || '', apy: computeApy(c.sale || c.token), value }
       }))
