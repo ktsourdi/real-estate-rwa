@@ -27,6 +27,8 @@ export default function MarketplacePage() {
   const [listings, setListings] = useState<any[]>([])
   const [form, setForm] = useState({ saleOrToken: '', amount: '1', price: '' })
   const [balance, setBalance] = useState<number>(0)
+  const amountInt = Math.max(0, parseInt(form.amount || '0'))
+  const maxAmount = Math.max(0, balance)
 
   // Load listings from localStorage and chain (fallback)
   useEffect(() => {
@@ -94,16 +96,45 @@ export default function MarketplacePage() {
                   <option key={i} value={c.token}>{c.name} ({c.symbol})</option>
                 ))}
               </select>
-              <input className="border rounded px-3 py-2 bg-background" placeholder={`Amount (owned: ${balance})`} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
+              <input
+                type="number"
+                min={1}
+                step={1}
+                max={Math.max(1, maxAmount)}
+                className="border rounded px-3 py-2 bg-background"
+                placeholder={`Amount (owned: ${balance})`}
+                value={form.amount}
+                onChange={(e) => {
+                  const v = e.target.value
+                  const n = Math.max(0, parseInt(v || '0'))
+                  const clamped = Math.min(n, maxAmount)
+                  setForm({ ...form, amount: String(clamped) })
+                }}
+              />
               <input className="border rounded px-3 py-2 bg-background" placeholder="Price per token (USD)" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
             </div>
+            <div className="space-y-2">
+              <input
+                type="range"
+                min={1}
+                max={Math.max(1, maxAmount)}
+                value={Math.min(Math.max(1, amountInt || 1), Math.max(1, maxAmount))}
+                onChange={(e) => setForm({ ...form, amount: String(e.target.value) })}
+              />
+              <div className="text-xs text-muted-foreground flex justify-between">
+                <span>Owned: {balance}</span>
+                <span>Listing: {amountInt || 0}</span>
+              </div>
+            </div>
             <div>
-              <Button className="gradient-emerald text-white border-0" onClick={async () => {
+              <Button className="gradient-emerald text-white border-0" disabled={!address || !form.saleOrToken || amountInt <= 0 || amountInt > maxAmount || !form.price} onClick={async () => {
                 try {
                   if (!address || !form.saleOrToken || !form.amount || !form.price) return
                   const amount = BigInt(parseInt(form.amount))
                   if (amount <= BigInt(0)) return
+                  if (Number(amount) > maxAmount) { toast({ title: 'Invalid amount', description: 'Cannot list more than you own.', variant: 'destructive' }); return }
                   const price6 = BigInt(Math.round(Number(form.price) * 1e6))
+                  if (Number(price6) <= 0) { toast({ title: 'Invalid price', description: 'Enter a positive price.', variant: 'destructive' }); return }
                   // Approve marketplace to transfer user's tokens
                   await writeContractAsync({ address: form.saleOrToken as `0x${string}`, abi: erc20Abi, functionName: 'approve', args: [MARKETPLACE, amount] })
                   const txHash = await writeContractAsync({ address: MARKETPLACE, abi: marketplaceAbi, functionName: 'createListing', args: [form.saleOrToken as `0x${string}`, amount, price6] })
