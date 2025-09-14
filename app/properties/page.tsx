@@ -110,7 +110,6 @@ function PropertyCard({ property, writeContractAsync }: { property: any, writeCo
       </CardHeader>
 
       <CardContent className="space-y-5">
-        <p className="text-sm text-muted-foreground">Token: {property.token || 'pending'}<br/>Sale: {property.sale || 'pending'}</p>
 
         <div className="flex justify-between items-center p-4 rounded-xl bg-gradient-to-r from-emerald-50/50 to-emerald-100/30 dark:from-emerald-950/30 dark:to-emerald-900/20 border border-emerald-200/30 dark:border-emerald-800/30">
           <div>
