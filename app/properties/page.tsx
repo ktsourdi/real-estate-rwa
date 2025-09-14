@@ -11,6 +11,7 @@ import { erc20Abi, propertySaleAbi } from '@/lib/abis'
 import { publicClient } from '@/lib/publicClient'
 import { confettiBurst, showLoading } from '@/lib/confetti'
 import { useToast } from '@/hooks/use-toast'
+import { rebuildCatalogFromChain } from '@/lib/catalog'
 
 function loadCatalog() {
   if (typeof window === 'undefined') return [] as any[]
@@ -21,7 +22,19 @@ export default function Properties() {
   const [catalog, setCatalog] = useState<any[]>([])
   const { writeContractAsync } = useWriteContract()
 
-  useEffect(() => { setCatalog(loadCatalog()) }, [])
+  useEffect(() => {
+    let mounted = true
+    async function init() {
+      const local = loadCatalog()
+      if (local.length > 0) { if (mounted) setCatalog(local); return }
+      // Fallback: rebuild from chain if localStorage empty
+      try {
+        const rebuilt = await rebuildCatalogFromChain()
+        if (mounted) setCatalog(rebuilt)
+      } catch { if (mounted) setCatalog([]) }
+    }
+    init(); return () => { mounted = false }
+  }, [])
   return (
     <DashboardLayout>
       <div className="space-y-8">
