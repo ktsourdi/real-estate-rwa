@@ -138,27 +138,56 @@ function PropertyCard({ property, writeContractAsync }: { property: any, writeCo
           <p className="text-xs text-muted-foreground">You own: <span className="font-medium">{owned !== null ? Number(owned).toString() : '-'}</span> tokens ({ownedPct}%)</p>
         </div>
 
-        <div className="flex flex-col gap-3">
-          <div className="flex flex-wrap gap-2">
-            <input className="w-24 border rounded px-3 py-2 text-sm bg-background" value={amount} onChange={(e) => setAmount(e.target.value)} />
-            <div className="flex gap-2">
-              {[1, 10, 20, 50].map((q) => (
-                <Button key={q} variant="outline" size="sm" onClick={() => setAmount(String(Math.min(remaining, q)))}>{q}</Button>
-              ))}
+        <div className="space-y-4 p-4 rounded-xl bg-gradient-to-br from-slate-50/50 to-slate-100/30 dark:from-slate-900/30 dark:to-slate-800/20 border border-slate-200/50 dark:border-slate-700/50">
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <input 
+                  className="w-20 h-10 border-2 border-emerald-200/50 dark:border-emerald-800/50 rounded-lg px-3 text-sm bg-background/80 backdrop-blur-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all duration-200 text-center font-medium" 
+                  value={amount} 
+                  onChange={(e) => setAmount(e.target.value)}
+                  placeholder="1"
+                />
+                <div className="absolute -top-2 left-2 text-xs text-muted-foreground bg-background px-1 rounded">Tokens</div>
+              </div>
+              <div className="flex gap-1.5">
+                {[1, 10, 20, 50].map((q) => (
+                  <Button 
+                    key={q} 
+                    variant="outline" 
+                    size="sm" 
+                    className="h-8 px-3 text-xs font-medium bg-gradient-to-r from-emerald-50 to-emerald-100/50 dark:from-emerald-950/50 dark:to-emerald-900/30 border-emerald-200/60 dark:border-emerald-800/60 hover:from-emerald-100 hover:to-emerald-200/50 hover:border-emerald-300 dark:hover:from-emerald-900/70 dark:hover:to-emerald-800/50 transition-all duration-200 hover:scale-105"
+                    onClick={() => setAmount(String(Math.min(remaining, q)))}
+                  >
+                    {q}
+                  </Button>
+                ))}
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <div className="relative">
+                <input
+                  type="range"
+                  min={1}
+                  max={Math.max(1, remaining)}
+                  value={Math.min(Math.max(1, amountNum || 1), Math.max(1, remaining))}
+                  onChange={(e) => setAmount(String(e.target.value))}
+                  className="w-full h-2 bg-gradient-to-r from-slate-200 to-slate-300 dark:from-slate-700 dark:to-slate-600 rounded-lg appearance-none cursor-pointer slider-emerald"
+                />
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground bg-slate-100/50 dark:bg-slate-800/50 px-2 py-1 rounded-md">
+                  Available: <span className="font-medium text-emerald-600 dark:text-emerald-400">{remaining}</span>
+                </span>
+                <span className="text-muted-foreground bg-slate-100/50 dark:bg-slate-800/50 px-2 py-1 rounded-md">
+                  Total: <span className="font-medium text-emerald-600 dark:text-emerald-400">{totalCostStr}</span>
+                </span>
+              </div>
             </div>
           </div>
-          <input
-            type="range"
-            min={1}
-            max={Math.max(1, remaining)}
-            value={Math.min(Math.max(1, amountNum || 1), Math.max(1, remaining))}
-            onChange={(e) => setAmount(String(e.target.value))}
-          />
-          <div className="text-xs text-muted-foreground flex justify-between">
-            <span>Remaining: {remaining}</span>
-            <span>Total: {totalCostStr}</span>
-          </div>
-          <Button className="flex-1 gradient-emerald hover:shadow-lg hover:shadow-emerald-500/25 transition-all duration-300 text-white border-0 hover:scale-[1.02]"
+          
+          <Button className="w-full h-11 gradient-emerald hover:shadow-xl hover:shadow-emerald-500/25 transition-all duration-300 text-white border-0 hover:scale-[1.02] font-semibold text-sm"
             onClick={async () => {
               const loader = showLoading()
               try {
