@@ -74,9 +74,14 @@ export default function MarketplacePage() {
       const selected = cats.find((c:any) => c.token?.toLowerCase() === form.saleOrToken.toLowerCase())
       if (address && selected?.token) {
         try {
-          const bal = await publicClient.readContract({ address: selected.token as `0x${string}`, abi: erc20Abi as any, functionName: 'balanceOf', args: [address] }) as any
-          if (mounted) setBalance(Number(bal))
-        } catch {}
+          if (selected?.sale) {
+            const owned = await publicClient.readContract({ address: selected.sale as `0x${string}`, abi: propertySaleAbi as any, functionName: 'purchased', args: [address] }) as any
+            if (mounted) setBalance(Number(owned))
+          } else {
+            const bal = await publicClient.readContract({ address: selected.token as `0x${string}`, abi: erc20Abi as any, functionName: 'balanceOf', args: [address] }) as any
+            if (mounted) setBalance(Number(bal))
+          }
+        } catch { if (mounted) setBalance(0) }
       }
       // Suggested price from primary sale pricePerToken (USD 6dp)
       if (selected?.sale) {
@@ -91,7 +96,7 @@ export default function MarketplacePage() {
     load(); return () => { mounted = false }
   }, [address, form.saleOrToken])
 
-  // Load owned balances for all catalog tokens to filter dropdown to owned-only
+  // Load owned amounts (from sale.purchased) for all catalog tokens to filter dropdown to owned-only
   useEffect(() => {
     let mounted = true
     async function loadOwned() {
@@ -101,6 +106,10 @@ export default function MarketplacePage() {
         const entries = await Promise.all(cats.map(async (c:any) => {
           if (!c.token) return null
           try {
+            if (c.sale) {
+              const owned = await publicClient.readContract({ address: c.sale as `0x${string}`, abi: propertySaleAbi as any, functionName: 'purchased', args: [address] }) as any
+              return [String(c.token).toLowerCase(), Number(owned)] as [string, number]
+            }
             const bal = await publicClient.readContract({ address: c.token as `0x${string}`, abi: erc20Abi as any, functionName: 'balanceOf', args: [address] }) as any
             return [String(c.token).toLowerCase(), Number(bal)] as [string, number]
           } catch { return [String(c.token).toLowerCase(), 0] as [string, number] }
