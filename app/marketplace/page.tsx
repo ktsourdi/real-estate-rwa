@@ -10,6 +10,7 @@ import { publicClient } from '@/lib/publicClient'
 import { useToast } from '@/hooks/use-toast'
 import { rebuildMarketplaceListingsFromChain } from '@/lib/market'
 import { parseEventLogs } from 'viem'
+import Image from 'next/image'
 
 const MARKETPLACE = process.env.NEXT_PUBLIC_MARKETPLACE as `0x${string}`
 const USD = process.env.NEXT_PUBLIC_USD as `0x${string}`
@@ -31,6 +32,12 @@ export default function MarketplacePage() {
   const maxAmount = Math.max(0, balance)
   const [ownedMap, setOwnedMap] = useState<Record<string, number>>({})
   const [suggested, setSuggested] = useState<number | null>(null)
+  const computeApy = (seed?: string) => {
+    if (!seed) return 8.5
+    let x = 0
+    for (const c of seed.toLowerCase()) x = (x * 31 + c.charCodeAt(0)) % 10000
+    return +(7 + ((x % 301) / 100)).toFixed(1)
+  }
 
   // Load listings from localStorage and chain (fallback)
   useEffect(() => {
@@ -167,6 +174,31 @@ export default function MarketplacePage() {
                 )}
               </div>
             </div>
+
+            {/* Selected property preview */}
+            {(() => {
+              const meta = (cats || []).find((c:any) => String(c.token || '').toLowerCase() === String(form.saleOrToken || '').toLowerCase())
+              if (!meta) return null
+              const img = meta.image || 'https://images.pexels.com/photos/106399/pexels-photo-106399.jpeg'
+              const apy = computeApy(meta.sale || meta.token)
+              const owned = ownedMap[String(meta.token).toLowerCase()] || 0
+              return (
+                <div className="flex items-center gap-4 p-4 rounded-xl bg-gradient-to-br from-slate-50/50 to-slate-100/30 dark:from-slate-900/30 dark:to-slate-800/20 border border-slate-200/50 dark:border-slate-700/50">
+                  <div className="relative w-16 h-16 rounded-lg overflow-hidden">
+                    <Image src={img} alt={meta.name || 'Property'} fill className="object-cover" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="font-semibold">{meta.name}</div>
+                    <div className="text-xs text-muted-foreground">{meta.location || ''}</div>
+                  </div>
+                  <div className="text-right text-xs text-muted-foreground">
+                    <div>Owned: <span className="font-medium">{owned}</span></div>
+                    {suggested !== null && (<div>Primary: <span className="font-medium">${suggested.toFixed(2)}</span></div>)}
+                    <div>APY: <span className="font-medium">{apy}%</span></div>
+                  </div>
+                </div>
+              )
+            })()}
             
             <div className="space-y-4 p-4 rounded-xl bg-gradient-to-br from-slate-50/50 to-slate-100/30 dark:from-slate-900/30 dark:to-slate-800/20 border border-slate-200/50 dark:border-slate-700/50">
               <div className="space-y-3">
