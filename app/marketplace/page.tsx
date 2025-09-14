@@ -8,6 +8,8 @@ import { useEffect, useState } from 'react'
 import { marketplaceAbi, erc20Abi } from '@/lib/abis'
 import { publicClient } from '@/lib/publicClient'
 import { useToast } from '@/hooks/use-toast'
+import { rebuildMarketplaceListingsFromChain } from '@/lib/market'
+import { parseEventLogs } from 'viem'
 
 const MARKETPLACE = process.env.NEXT_PUBLIC_MARKETPLACE as `0x${string}`
 const USD = process.env.NEXT_PUBLIC_USD as `0x${string}`
@@ -26,13 +28,36 @@ export default function MarketplacePage() {
   const [form, setForm] = useState({ saleOrToken: '', amount: '1', price: '' })
   const [balance, setBalance] = useState<number>(0)
 
-  // Load simple local listings (id, token, remaining, price, seller)
+  // Load listings from localStorage and chain (fallback)
   useEffect(() => {
     let mounted = true
     async function load() {
       const key = 'rwa_market_listings'
       const data = JSON.parse(localStorage.getItem(key) || '[]')
-      if (mounted) setListings(data)
+      // Chain fallback for active listings
+      let chainListings: any[] = []
+      try {
+        const chain = await rebuildMarketplaceListingsFromChain()
+        // try to attach display name from catalog
+        const cats = loadCatalog()
+        chainListings = chain.map((l: any) => ({
+          ...l,
+          name: cats.find((c: any) => c.token?.toLowerCase() === l.token?.toLowerCase())?.name || 'Property'
+        }))
+      } catch {}
+      // merge, preferring chain (source of truth)
+      const mergedMap = new Map<number, any>()
+      for (const l of chainListings) mergedMap.set(Number(l.id), l)
+      for (const l of data) {
+        const idNum = Number(l.id || 0)
+        if (!mergedMap.has(idNum) && Number(l.remaining) > 0) mergedMap.set(idNum, l)
+        if (mergedMap.has(idNum)) {
+          const curr = mergedMap.get(idNum)
+          mergedMap.set(idNum, { ...curr, name: l.name || curr.name })
+        }
+      }
+      const merged = Array.from(mergedMap.values())
+      if (mounted) setListings(merged)
       // compute user's token balance for selected asset
       const cats = loadCatalog()
       const selected = cats.find((c:any) => c.token?.toLowerCase() === form.saleOrToken.toLowerCase())
@@ -81,13 +106,17 @@ export default function MarketplacePage() {
                   const price6 = BigInt(Math.round(Number(form.price) * 1e6))
                   // Approve marketplace to transfer user's tokens
                   await writeContractAsync({ address: form.saleOrToken as `0x${string}`, abi: erc20Abi, functionName: 'approve', args: [MARKETPLACE, amount] })
-                  const id = await writeContractAsync({ address: MARKETPLACE, abi: marketplaceAbi, functionName: 'createListing', args: [form.saleOrToken as `0x${string}`, amount, price6] })
+                  const txHash = await writeContractAsync({ address: MARKETPLACE, abi: marketplaceAbi, functionName: 'createListing', args: [form.saleOrToken as `0x${string}`, amount, price6] })
                   toast({ title: 'Listing submitted', description: 'Waiting for confirmation…' })
+                  // Wait for receipt and extract the emitted listing id
+                  const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash as `0x${string}` })
+                  const decoded = parseEventLogs({ abi: marketplaceAbi as any, logs: receipt.logs as any, eventName: 'Listed' }) as any[]
+                  const newId = Number(decoded?.[0]?.args?.id || 0)
                   // Store minimal listing locally for discovery/demo
                   const key = 'rwa_market_listings'
                   const existing = JSON.parse(localStorage.getItem(key) || '[]')
                   const tokenName = cats.find((c:any) => c.token?.toLowerCase() === form.saleOrToken.toLowerCase())?.name || 'Property'
-                  existing.unshift({ id: String(id), token: form.saleOrToken, remaining: Number(amount), price6: Number(price6), seller: address, name: tokenName })
+                  existing.unshift({ id: newId, token: form.saleOrToken, remaining: Number(amount), price6: Number(price6), seller: address, name: tokenName })
                   localStorage.setItem(key, JSON.stringify(existing))
                   setListings(existing)
                 } catch (e:any) {
@@ -110,7 +139,6 @@ export default function MarketplacePage() {
                 <div key={i} className="p-4 border rounded-xl flex items-center justify-between">
                   <div>
                     <div className="font-semibold">{l.name}</div>
-                    <div className="text-xs text-muted-foreground">Token: {l.token}</div>
                   </div>
                   <div className="text-right">
                     <div className="text-sm">{l.remaining} tokens</div>
