@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useAccount, useWriteContract } from 'wagmi'
 import { useEffect, useState } from 'react'
-import { marketplaceAbi, erc20Abi } from '@/lib/abis'
+import { marketplaceAbi, erc20Abi, propertySaleAbi } from '@/lib/abis'
 import { publicClient } from '@/lib/publicClient'
 import { useToast } from '@/hooks/use-toast'
 import { rebuildMarketplaceListingsFromChain } from '@/lib/market'
@@ -30,6 +30,7 @@ export default function MarketplacePage() {
   const amountInt = Math.max(0, parseInt(form.amount || '0'))
   const maxAmount = Math.max(0, balance)
   const [ownedMap, setOwnedMap] = useState<Record<string, number>>({})
+  const [suggested, setSuggested] = useState<number | null>(null)
 
   // Load listings from localStorage and chain (fallback)
   useEffect(() => {
@@ -69,6 +70,15 @@ export default function MarketplacePage() {
           const bal = await publicClient.readContract({ address: selected.token as `0x${string}`, abi: erc20Abi as any, functionName: 'balanceOf', args: [address] }) as any
           if (mounted) setBalance(Number(bal))
         } catch {}
+      }
+      // Suggested price from primary sale pricePerToken (USD 6dp)
+      if (selected?.sale) {
+        try {
+          const p = await publicClient.readContract({ address: selected.sale as `0x${string}`, abi: propertySaleAbi as any, functionName: 'pricePerToken', args: [] }) as any
+          if (mounted) setSuggested(Number(p) / 1e6)
+        } catch { if (mounted) setSuggested(null) }
+      } else {
+        if (mounted) setSuggested(null)
       }
     }
     load(); return () => { mounted = false }
@@ -149,6 +159,12 @@ export default function MarketplacePage() {
                   onChange={(e) => setForm({ ...form, price: e.target.value })} 
                 />
                 <div className="absolute -top-2 left-3 text-xs text-muted-foreground bg-background px-2 rounded">Price per token (USD)</div>
+                {suggested !== null && (
+                  <div className="mt-2 text-xs text-muted-foreground flex items-center justify-between">
+                    <span>Suggested: ${suggested.toFixed(2)}</span>
+                    <button type="button" className="text-emerald-600 hover:underline" onClick={() => setForm({ ...form, price: suggested?.toFixed(2) || '' })}>Use suggested</button>
+                  </div>
+                )}
               </div>
             </div>
             
