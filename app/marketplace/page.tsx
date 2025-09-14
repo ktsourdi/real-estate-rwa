@@ -38,6 +38,13 @@ export default function MarketplacePage() {
     for (const c of seed.toLowerCase()) x = (x * 31 + c.charCodeAt(0)) % 10000
     return +(7 + ((x % 301) / 100)).toFixed(1)
   }
+  const fallbackImage = 'https://images.pexels.com/photos/106399/pexels-photo-106399.jpeg'
+  const normalizeImageUrl = (u?: string): string => {
+    if (!u) return fallbackImage
+    if (u.startsWith('ipfs://')) return `https://ipfs.io/ipfs/${u.replace('ipfs://','')}`
+    return u
+  }
+  const [previewImgSrc, setPreviewImgSrc] = useState<string>(fallbackImage)
 
   // Load listings from localStorage and chain (fallback)
   useEffect(() => {
@@ -124,6 +131,12 @@ export default function MarketplacePage() {
 
   const cats = loadCatalog()
 
+  // Update preview image when selection changes
+  useEffect(() => {
+    const meta = (cats || []).find((c:any) => String(c.token || '').toLowerCase() === String(form.saleOrToken || '').toLowerCase())
+    setPreviewImgSrc(normalizeImageUrl(meta?.image))
+  }, [form.saleOrToken])
+
   return (
     <DashboardLayout>
       <div className="space-y-8">
@@ -188,13 +201,12 @@ export default function MarketplacePage() {
             {(() => {
               const meta = (cats || []).find((c:any) => String(c.token || '').toLowerCase() === String(form.saleOrToken || '').toLowerCase())
               if (!meta) return null
-              const img = meta.image || 'https://images.pexels.com/photos/106399/pexels-photo-106399.jpeg'
               const apy = computeApy(meta.sale || meta.token)
               const owned = ownedMap[String(meta.token).toLowerCase()] || 0
               return (
                 <div className="flex items-center gap-4 p-4 rounded-xl bg-gradient-to-br from-slate-50/50 to-slate-100/30 dark:from-slate-900/30 dark:to-slate-800/20 border border-slate-200/50 dark:border-slate-700/50">
                   <div className="relative w-16 h-16 rounded-lg overflow-hidden">
-                    <Image src={img} alt={meta.name || 'Property'} fill className="object-cover" />
+                    <Image src={previewImgSrc} alt={meta.name || 'Property'} fill className="object-cover" onError={() => setPreviewImgSrc(fallbackImage)} />
                   </div>
                   <div className="flex-1">
                     <div className="font-semibold">{meta.name}</div>
