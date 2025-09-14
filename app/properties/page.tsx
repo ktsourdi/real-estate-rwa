@@ -61,7 +61,14 @@ function PropertyCard({ property, writeContractAsync }: { property: any, writeCo
   const [owned, setOwned] = useState<bigint | null>(null)
   const [amount, setAmount] = useState<string>('1')
   const MAX = BigInt(1000)
-  const image = (property?.image as string | undefined) || 'https://images.pexels.com/photos/106399/pexels-photo-106399.jpeg'
+  const fallbackImage = 'https://images.pexels.com/photos/106399/pexels-photo-106399.jpeg'
+  const normalizeImageUrl = (u?: string): string => {
+    if (!u) return fallbackImage
+    if (u.startsWith('ipfs://')) return `https://ipfs.io/ipfs/${u.replace('ipfs://','')}`
+    return u
+  }
+  const [imgSrc, setImgSrc] = useState<string>(normalizeImageUrl(property?.image))
+  useEffect(() => { setImgSrc(normalizeImageUrl(property?.image)) }, [property?.image])
   const { address } = useAccount()
   const { toast } = useToast()
 
@@ -95,7 +102,7 @@ function PropertyCard({ property, writeContractAsync }: { property: any, writeCo
   return (
     <Card className="overflow-hidden group hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 bg-card/60 backdrop-blur-sm border-border/50 shadow-lg">
       <div className="relative h-48 overflow-hidden">
-        <Image src={image} alt={property.name || 'Property'} fill className="object-cover group-hover:scale-110 transition-transform duration-700" />
+        <Image src={imgSrc} alt={property.name || 'Property'} fill className="object-cover group-hover:scale-110 transition-transform duration-700" onError={() => setImgSrc(fallbackImage)} />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
         <div className="absolute top-4 right-4 z-10">
           {property.location ? (
