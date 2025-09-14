@@ -88,6 +88,9 @@ function PropertyCard({ property, writeContractAsync }: { property: any, writeCo
   const soldPct = purchased !== null ? Number((purchased * BigInt(100)) / MAX) : 0
   const priceStr = price !== null ? (Number(price) / 1e6).toFixed(2) : '-'
   const ownedPct = owned !== null ? Number((owned * BigInt(100)) / MAX) : 0
+  const remaining = purchased !== null ? Math.max(0, Number(MAX - purchased)) : 1000
+  const amountNum = Math.max(0, parseInt(amount || '0'))
+  const totalCostStr = price !== null && amountNum > 0 ? `$${((Number(price) / 1e6) * amountNum).toFixed(2)}` : '-'
 
   return (
     <Card className="overflow-hidden group hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 bg-card/60 backdrop-blur-sm border-border/50 shadow-lg">
@@ -135,8 +138,26 @@ function PropertyCard({ property, writeContractAsync }: { property: any, writeCo
           <p className="text-xs text-muted-foreground">You own: <span className="font-medium">{owned !== null ? Number(owned).toString() : '-'}</span> tokens ({ownedPct}%)</p>
         </div>
 
-        <div className="flex gap-2">
-          <input className="w-24 border rounded px-3 py-2 text-sm bg-background" value={amount} onChange={(e) => setAmount(e.target.value)} />
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap gap-2">
+            <input className="w-24 border rounded px-3 py-2 text-sm bg-background" value={amount} onChange={(e) => setAmount(e.target.value)} />
+            <div className="flex gap-2">
+              {[1, 10, 20, 50].map((q) => (
+                <Button key={q} variant="outline" size="sm" onClick={() => setAmount(String(Math.min(remaining, q)))}>{q}</Button>
+              ))}
+            </div>
+          </div>
+          <input
+            type="range"
+            min={1}
+            max={Math.max(1, remaining)}
+            value={Math.min(Math.max(1, amountNum || 1), Math.max(1, remaining))}
+            onChange={(e) => setAmount(String(e.target.value))}
+          />
+          <div className="text-xs text-muted-foreground flex justify-between">
+            <span>Remaining: {remaining}</span>
+            <span>Total: {totalCostStr}</span>
+          </div>
           <Button className="flex-1 gradient-emerald hover:shadow-lg hover:shadow-emerald-500/25 transition-all duration-300 text-white border-0 hover:scale-[1.02]"
             onClick={async () => {
               const loader = showLoading()

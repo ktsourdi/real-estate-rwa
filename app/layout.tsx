@@ -7,7 +7,7 @@ import { Toaster } from '@/components/ui/toaster'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'BrickChain - Real Estate Tokenization',
+  title: 'BlockEstate - Real Estate Tokenization',
   description: 'Invest in tokenized real estate properties',
 }
 
