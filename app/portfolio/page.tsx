@@ -4,12 +4,13 @@ import { DashboardLayout } from '@/components/layout/dashboard-layout'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Wallet } from 'lucide-react'
+import { Wallet, TrendingUp } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useAccount } from 'wagmi'
 import { publicClient } from '@/lib/publicClient'
 import { erc20Abi, propertySaleAbi } from '@/lib/abis'
 import { useToast } from '@/hooks/use-toast'
+import Image from 'next/image'
 
 function loadCatalog() {
   if (typeof window === 'undefined') return [] as any[]
@@ -30,6 +31,12 @@ export default function Portfolio() {
     for (const c of seed.toLowerCase()) x = (x * 31 + c.charCodeAt(0)) % 10000
     return +(7 + ((x % 301) / 100)).toFixed(1)
   }
+  const fallbackImage = 'https://images.pexels.com/photos/106399/pexels-photo-106399.jpeg'
+  const normalizeImageUrl = (u?: string): string => {
+    if (!u) return fallbackImage
+    if (u.startsWith('ipfs://')) return `https://ipfs.io/ipfs/${u.replace('ipfs://','')}`
+    return u
+  }
 
   useEffect(() => {
     let mounted = true
@@ -46,7 +53,17 @@ export default function Portfolio() {
         const tokensOwned = Number(bought)
         if (tokensOwned <= 0) return null
         const value = (Number(ppt) * tokensOwned) / 1e6
-        return { name: c.name, token: c.token, sale: c.sale, tokensOwned, totalTokens: 1000, location: c.location || '', apy: computeApy(c.sale || c.token), value }
+        return { 
+          name: c.name, 
+          token: c.token, 
+          sale: c.sale, 
+          tokensOwned, 
+          totalTokens: 1000, 
+          location: c.location || '', 
+          apy: computeApy(c.sale || c.token), 
+          value,
+          image: c.image
+        }
       }))
       const filtered = results.filter(Boolean) as any[]
       if (mounted) setHoldings(filtered)
@@ -102,49 +119,86 @@ export default function Portfolio() {
         </div>
 
         {/* Holdings */}
-        <Card className="bg-card/50 backdrop-blur-sm border-border/50 shadow-lg">
-          <CardHeader>
-            <CardTitle>Your Holdings</CardTitle>
-            <CardDescription>
-              Properties in your investment portfolio
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-6">
-              {holdings.length === 0 && (
+        <div className="space-y-6">
+          <div>
+            <h3 className="text-2xl font-bold tracking-tight">Your Holdings</h3>
+            <p className="text-muted-foreground mt-2">Properties in your investment portfolio</p>
+          </div>
+          
+          {holdings.length === 0 && (
+            <Card className="bg-card/50 backdrop-blur-sm border-border/50 shadow-lg">
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 flex items-center justify-center mb-4">
+                  <Wallet className="w-8 h-8 text-muted-foreground" />
+                </div>
                 <p className="text-sm text-muted-foreground">No holdings yet. Buy tokens from the Properties page.</p>
-              )}
-              {holdings.map((h, i) => (
-                <div key={i} className="border border-border/50 rounded-xl p-6 space-y-4 bg-gradient-to-r from-muted/20 to-muted/10 hover:from-muted/30 hover:to-muted/20 transition-all duration-300 hover:shadow-md">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between">
+              </CardContent>
+            </Card>
+          )}
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {holdings.map((h, i) => (
+              <Card key={i} className="overflow-hidden group hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 bg-card/60 backdrop-blur-sm border-border/50 shadow-lg">
+                <div className="relative h-48 overflow-hidden">
+                  <Image 
+                    src={normalizeImageUrl(h.image)} 
+                    alt={h.name || 'Property'} 
+                    fill 
+                    className="object-cover group-hover:scale-110 transition-transform duration-700" 
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement
+                      target.src = fallbackImage
+                    }}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                  <div className="absolute top-4 right-4 z-10">
+                    {h.location && (
+                      <Badge variant="secondary" className="glass-effect text-white border-white/20 shadow-lg">{h.location}</Badge>
+                    )}
+                  </div>
+                </div>
+
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-xl">{h.name}</CardTitle>
+                  {h.location && (<p className="text-sm text-muted-foreground mt-1">{h.location}</p>)}
+                </CardHeader>
+
+                <CardContent className="space-y-4">
+                  <div className="flex justify-between items-center p-4 rounded-xl bg-gradient-to-r from-emerald-50/50 to-emerald-100/30 dark:from-emerald-950/30 dark:to-emerald-900/20 border border-emerald-200/30 dark:border-emerald-800/30">
                     <div>
-                      <h3 className="font-semibold text-lg">{h.name}</h3>
-                      <p className="text-sm text-muted-foreground">{h.location || '—'}</p>
-                      <p className="text-xs text-muted-foreground mt-1">Token: {h.token}</p>
+                      <p className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-emerald-500 bg-clip-text text-transparent">${(h.value || 0).toFixed(2)}</p>
+                      <p className="text-sm text-muted-foreground">current value</p>
                     </div>
-                    <div className="flex gap-2 items-center self-start sm:self-center mt-2 sm:mt-0">
-                      <Badge variant="secondary" className="border-emerald-200 text-emerald-700 dark:border-emerald-800 dark:text-emerald-300">{h.apy}% APY</Badge>
-                      <Badge variant="outline" className="border-emerald-200 text-emerald-700 dark:border-emerald-800 dark:text-emerald-300">
-                        {((h.tokensOwned / h.totalTokens) * 100).toFixed(2)}% ownership
-                      </Badge>
+                    <div className="text-right">
+                      <div className="flex items-center text-emerald-600 dark:text-emerald-400">
+                        <TrendingUp className="w-4 h-4 mr-1" />
+                        <span className="font-medium">{h.apy}% APY</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">live yield</p>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Tokens Owned</p>
-                      <p className="font-semibold">{h.tokensOwned}/{h.totalTokens}</p>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Ownership</span>
+                      <span className="font-semibold">{((h.tokensOwned / h.totalTokens) * 100).toFixed(2)}%</span>
                     </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Sale</p>
-                      <p className="font-semibold">{h.sale}</p>
+                    <div className="w-full bg-slate-200 dark:bg-slate-800 rounded-full h-2 overflow-hidden">
+                      <div 
+                        className="gradient-emerald rounded-full h-2 transition-all duration-500 shadow-sm" 
+                        style={{ width: `${((h.tokensOwned / h.totalTokens) * 100)}%` }} 
+                      />
+                    </div>
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>Tokens: {h.tokensOwned}/{h.totalTokens}</span>
+                      <span>Est. Monthly: ${((h.value * h.apy / 100) / 12).toFixed(2)}</span>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
       </div>
     </DashboardLayout>
     {showWithdraw && (
