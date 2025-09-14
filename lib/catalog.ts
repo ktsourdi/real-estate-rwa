@@ -38,7 +38,20 @@ export async function rebuildCatalogFromChain(): Promise<CatalogItem[]> {
   // Merge with any existing metadata (image/location) if present in localStorage
   if (typeof window !== 'undefined') {
     try {
-      const existing = JSON.parse(localStorage.getItem('rwa_catalog') || '[]')
+      let existing = JSON.parse(localStorage.getItem('rwa_catalog') || '[]')
+      // If existing has no images, try to backfill from Pinata by name
+      const needsBackfill = existing.every((e: any) => !e?.image)
+      if (needsBackfill) {
+        const filled = await Promise.all(items.map(async (it) => {
+          try {
+            const res = await fetch(`/api/pinata-search?name=${encodeURIComponent((it.name || '').replace(/ Shares$/,''))}`)
+            if (!res.ok) return it
+            const json = await res.json()
+            return { ...it, image: json?.imageURI || it.image || null }
+          } catch { return it }
+        }))
+        for (let i = 0; i < filled.length; i++) items[i] = filled[i]
+      }
       for (const it of items) {
         const found = existing.find((e: any) => (e.sale && it.sale) && e.sale.toLowerCase() === it.sale.toLowerCase())
         if (found) {
