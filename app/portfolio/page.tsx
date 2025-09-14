@@ -167,31 +167,21 @@ export default function Portfolio() {
                   <div className="flex justify-between items-center p-4 rounded-xl bg-gradient-to-r from-emerald-50/50 to-emerald-100/30 dark:from-emerald-950/30 dark:to-emerald-900/20 border border-emerald-200/30 dark:border-emerald-800/30">
                     <div>
                       <p className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-emerald-500 bg-clip-text text-transparent">${(h.value || 0).toFixed(2)}</p>
-                      <p className="text-sm text-muted-foreground">current value</p>
+                      <p className="text-sm text-muted-foreground">invested value</p>
                     </div>
                     <div className="text-right">
                       <div className="flex items-center text-emerald-600 dark:text-emerald-400">
                         <TrendingUp className="w-4 h-4 mr-1" />
                         <span className="font-medium">{h.apy}% APY</span>
                       </div>
-                      <p className="text-sm text-muted-foreground">live yield</p>
+                      <p className="text-sm text-muted-foreground">annual yield</p>
                     </div>
                   </div>
 
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Ownership</span>
-                      <span className="font-semibold">{((h.tokensOwned / h.totalTokens) * 100).toFixed(2)}%</span>
-                    </div>
-                    <div className="w-full bg-slate-200 dark:bg-slate-800 rounded-full h-2 overflow-hidden">
-                      <div 
-                        className="gradient-emerald rounded-full h-2 transition-all duration-500 shadow-sm" 
-                        style={{ width: `${((h.tokensOwned / h.totalTokens) * 100)}%` }} 
-                      />
-                    </div>
-                    <div className="flex justify-between text-xs text-muted-foreground">
-                      <span>Tokens: {h.tokensOwned}/{h.totalTokens}</span>
-                      <span>Est. Monthly: ${((h.value * h.apy / 100) / 12).toFixed(2)}</span>
+                      <span className="text-sm text-muted-foreground">Tokens Owned</span>
+                      <span className="font-semibold">{h.tokensOwned}</span>
                     </div>
                   </div>
                 </CardContent>
