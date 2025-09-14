@@ -26,11 +26,18 @@ export default function Properties() {
     let mounted = true
     async function init() {
       const local = loadCatalog()
-      if (local.length > 0) { if (mounted) setCatalog(local); return }
+      if (local.length > 0) { 
+        // Sort local catalog with newest first (reverse order since items are added with unshift)
+        const sorted = [...local].reverse()
+        if (mounted) setCatalog(sorted)
+        return 
+      }
       // Fallback: rebuild from chain if localStorage empty
       try {
         const rebuilt = await rebuildCatalogFromChain()
-        if (mounted) setCatalog(rebuilt)
+        // Chain data comes in chronological order, reverse for newest first
+        const sorted = [...rebuilt].reverse()
+        if (mounted) setCatalog(sorted)
       } catch { if (mounted) setCatalog([]) }
     }
     init(); return () => { mounted = false }
