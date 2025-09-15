@@ -92,6 +92,19 @@ export const erc20Abi = [
   { "type": "function", "name": "allowance", "stateMutability": "view", "inputs": [{ "type": "address" }, { "type": "address" }], "outputs": [{ "type": "uint256" }] }
 ] as const
 
+// USDStableToken (demo) extends ERC20 with mint/burn and Ownable
+export const usdAbi = [
+  { "type": "function", "name": "name", "stateMutability": "view", "inputs": [], "outputs": [{ "type": "string" }] },
+  { "type": "function", "name": "symbol", "stateMutability": "view", "inputs": [], "outputs": [{ "type": "string" }] },
+  { "type": "function", "name": "decimals", "stateMutability": "view", "inputs": [], "outputs": [{ "type": "uint8" }] },
+  { "type": "function", "name": "balanceOf", "stateMutability": "view", "inputs": [{ "type": "address" }], "outputs": [{ "type": "uint256" }] },
+  { "type": "function", "name": "approve", "stateMutability": "nonpayable", "inputs": [{ "type": "address" }, { "type": "uint256" }], "outputs": [{ "type": "bool" }] },
+  { "type": "function", "name": "allowance", "stateMutability": "view", "inputs": [{ "type": "address" }, { "type": "address" }], "outputs": [{ "type": "uint256" }] },
+  { "type": "function", "name": "owner", "stateMutability": "view", "inputs": [], "outputs": [{ "type": "address" }] },
+  { "type": "function", "name": "mint", "stateMutability": "nonpayable", "inputs": [{ "type": "address" }, { "type": "uint256" }], "outputs": [] },
+  { "type": "function", "name": "burn", "stateMutability": "nonpayable", "inputs": [{ "type": "address" }, { "type": "uint256" }], "outputs": [] }
+] as const
+
 export const marketplaceAbi = [
   { "type": "event", "name": "Listed", "inputs": [ { "name": "id", "type": "uint256", "indexed": true }, { "name": "seller", "type": "address", "indexed": true }, { "name": "token", "type": "address", "indexed": true }, { "name": "amount", "type": "uint256", "indexed": false }, { "name": "pricePerTokenUSD6", "type": "uint256", "indexed": false } ] },
   { "type": "event", "name": "Purchased", "inputs": [ { "name": "id", "type": "uint256", "indexed": true }, { "name": "buyer", "type": "address", "indexed": true }, { "name": "amount", "type": "uint256", "indexed": false }, { "name": "costUSD6", "type": "uint256", "indexed": false } ] },

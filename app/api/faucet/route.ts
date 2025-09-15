@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createWalletClient, http, parseUnits } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { sepolia } from 'viem/chains'
-import { erc20Abi } from '@/lib/abis'
+import { usdAbi } from '@/lib/abis'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     const mintAmount = parseUnits(String(amount ?? 100), 6)
 
     // USDStableToken is Ownable; mint is owner-only
-    const hash = await client.writeContract({ address: usdAddress as `0x${string}`, abi: erc20Abi as any, functionName: 'mint', args: [to as `0x${string}`, mintAmount] })
+    const hash = await client.writeContract({ address: usdAddress as `0x${string}`, abi: usdAbi as any, functionName: 'mint', args: [to as `0x${string}`, mintAmount] })
 
     return NextResponse.json({ hash })
   } catch (e: any) {
