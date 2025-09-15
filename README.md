@@ -1,5 +1,7 @@
 # Tokenised Real Estate – Fractional Ownership & Marketplace
 
+## check out deployed app in Vercel and Ethereum Testnet https://real-estate-rwa.vercel.app
+
 A web app that tokenises real-world real estate into on-chain fractions so anyone can buy, hold, and trade a share. Includes a simple marketplace for primary sales and peer-to-peer listings.
 
 > **One-liner (non-technical):** Buy and trade small pieces of property online—like shares—safely and transparently.
