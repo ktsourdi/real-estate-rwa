@@ -24,13 +24,10 @@ export default function FaucetPage() {
       toast({ title: 'Connect wallet', description: 'Please connect a wallet or enter an address.' })
       return
     }
-    const amt = Number(amount || '0')
+    const amt = Math.min(10000, Number(amount || '0'))
     if (!Number.isFinite(amt) || amt <= 0) {
       toast({ title: 'Invalid amount', description: 'Enter a positive number.' })
       return
-    }
-    if (amt > 10000) {
-      toast({ title: 'Amount capped', description: 'Max per request is 10,000 DUSD.' })
     }
     const loader = showLoading()
     try {
@@ -92,7 +89,23 @@ export default function FaucetPage() {
             </div>
             <div className="space-y-2">
               <label htmlFor="amt" className="text-sm text-muted-foreground">Amount (DUSD)</label>
-              <Input id="amt" type="number" min={1} step={1} value={amount} onChange={(e) => setAmount(e.target.value)} />
+              <Input
+                id="amt"
+                type="number"
+                min={1}
+                max={10000}
+                step={1}
+                value={amount}
+                onChange={(e) => {
+                  const raw = e.target.value
+                  if (raw === '') { setAmount(''); return }
+                  const num = Math.floor(Number(raw))
+                  if (!Number.isFinite(num)) { return }
+                  const clamped = Math.max(1, Math.min(10000, num))
+                  setAmount(String(clamped))
+                }}
+              />
+              <p className="text-xs text-muted-foreground">Max per request: 10,000 DUSD</p>
             </div>
             <div className="text-sm text-muted-foreground">
               Contract: <code className="font-mono">{process.env.NEXT_PUBLIC_USD}</code>
