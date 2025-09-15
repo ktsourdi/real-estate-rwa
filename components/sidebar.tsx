@@ -21,6 +21,7 @@ const navigation = [
   { name: 'Portfolio', href: '/portfolio', icon: Briefcase },
   { name: 'Transactions', href: '/transactions', icon: Receipt },
   { name: 'Marketplace', href: '/marketplace', icon: Briefcase },
+  { name: 'Faucet', href: '/faucet', icon: Receipt },
 ]
 
 export function Sidebar() {
