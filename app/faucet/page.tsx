@@ -9,12 +9,14 @@ import { useToast } from '@/hooks/use-toast'
 import { showLoading, confettiBurst } from '@/lib/confetti'
 import { publicClient } from '@/lib/publicClient'
 import { erc20Abi } from '@/lib/abis'
+import { useEffect } from 'react'
 
 export default function FaucetPage() {
   const { address } = useAccount()
   const [to, setTo] = useState<string>('')
   const [amount, setAmount] = useState<string>('100')
   const { toast } = useToast()
+  const usd = process.env.NEXT_PUBLIC_USD as `0x${string}`
 
   const handleMint = async () => {
     const target = (to || address || '').toString()
@@ -26,6 +28,9 @@ export default function FaucetPage() {
     if (!Number.isFinite(amt) || amt <= 0) {
       toast({ title: 'Invalid amount', description: 'Enter a positive number.' })
       return
+    }
+    if (amt > 10000) {
+      toast({ title: 'Amount capped', description: 'Max per request is 10,000 DUSD.' })
     }
     const loader = showLoading()
     try {
@@ -39,10 +44,33 @@ export default function FaucetPage() {
       }
       loader?.remove()
       confettiBurst()
-      toast({ title: 'DUSD minted', description: `Minted ${amt} DUSD to ${target.slice(0,6)}…${target.slice(-4)}` })
+      const minted = data.minted ?? amt
+      toast({ title: 'DUSD minted', description: `Minted ${minted} DUSD to ${target.slice(0,6)}…${target.slice(-4)}` })
     } catch (e: any) {
       loader?.remove()
       toast({ title: 'Faucet error', description: e?.message || 'Failed to mint', variant: 'destructive' })
+    }
+  }
+
+  const addTokenToWallet = async () => {
+    try {
+      if (!(window as any).ethereum) {
+        toast({ title: 'No wallet', description: 'Install or open your wallet extension.' })
+        return
+      }
+      await (window as any).ethereum.request({
+        method: 'wallet_watchAsset',
+        params: {
+          type: 'ERC20',
+          options: {
+            address: usd,
+            symbol: 'dUSD',
+            decimals: 6,
+          },
+        },
+      })
+    } catch (e: any) {
+      toast({ title: 'Add token failed', description: e?.message || 'Could not add token', variant: 'destructive' })
     }
   }
 
@@ -74,7 +102,10 @@ export default function FaucetPage() {
                 <Button key={v} variant="outline" onClick={() => setAmount(String(v))}>{v}</Button>
               ))}
             </div>
-            <Button className="w-full" onClick={handleMint}>Mint</Button>
+            <div className="flex gap-2">
+              <Button className="w-full" onClick={handleMint}>Mint</Button>
+              <Button variant="secondary" onClick={addTokenToWallet}>Add to Wallet</Button>
+            </div>
           </CardContent>
         </Card>
       </div>

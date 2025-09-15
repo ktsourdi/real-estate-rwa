@@ -27,13 +27,15 @@ export async function POST(req: NextRequest) {
     const account = privateKeyToAccount((faucetPk.startsWith('0x') ? faucetPk : `0x${faucetPk}`) as `0x${string}`)
     const client = createWalletClient({ account, chain: sepolia, transport: http(rpcUrl) })
 
-    // Default to minting 100 DUSD (6 decimals)
-    const mintAmount = parseUnits(String(amount ?? 100), 6)
+    // Default to minting 100 DUSD (6 decimals), enforce 10,000 max per request
+    const requested = Number.isFinite(amount) && (amount as number) > 0 ? (amount as number) : 100
+    const capped = Math.min(requested, 10000)
+    const mintAmount = parseUnits(String(capped), 6)
 
     // USDStableToken is Ownable; mint is owner-only
     const hash = await client.writeContract({ address: usdAddress as `0x${string}`, abi: usdAbi as any, functionName: 'mint', args: [to as `0x${string}`, mintAmount] })
 
-    return NextResponse.json({ hash })
+    return NextResponse.json({ hash, minted: capped })
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || 'Failed to mint' }, { status: 500 })
   }
