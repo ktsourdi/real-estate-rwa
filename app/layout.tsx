@@ -10,6 +10,9 @@ const inter = Inter({ subsets: ['latin'] })
 export const metadata: Metadata = {
   title: 'StateOfBlock - Real Estate Tokenization',
   description: 'Invest in tokenized real estate properties',
+  icons: {
+    icon: '/icon.svg',
+  },
 }
 
 export default function RootLayout({
