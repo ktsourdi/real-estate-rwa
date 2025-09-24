@@ -8,7 +8,7 @@ import { Analytics } from '@vercel/analytics/next'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'BlockEstate - Real Estate Tokenization',
+  title: 'StateOfBlock - Real Estate Tokenization',
   description: 'Invest in tokenized real estate properties',
 }
 
