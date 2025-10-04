@@ -105,16 +105,7 @@ export async function buildMarketData(token?: string): Promise<{
         const cost = Number(parsed.args.costUSD6)
         const ask = asksById[id]
         if (ask) ask.remaining = Math.max(0, (ask.remaining || 0) - amt)
-        trades.push({
-          id,
-          token: ask?.token || '',
-          price6: Math.round(cost / Math.max(1, amt)),
-          amount: amt,
-          side: 'buy',
-          maker: ask?.seller || '',
-          taker: String(parsed.args.buyer),
-          blockNumber: Number(log.blockNumber || 0),
-        })
+        trades.push({ id, token: ask?.token || '', price6: Math.round(cost / Math.max(1, amt)), amount: amt, side: 'buy', maker: ask?.seller || '', taker: String(parsed.args.buyer), blockNumber: Number(log.blockNumber || 0) })
       } else if (parsed.eventName === 'Cancelled') {
         const id = Number(parsed.args.id)
         if (asksById[id]) asksById[id].remaining = 0
@@ -122,7 +113,7 @@ export async function buildMarketData(token?: string): Promise<{
     } catch {}
   }
 
-  // Fetch timestamps for trades (best-effort)
+  // timestamps
   try {
     const uniqueBlocks = Array.from(new Set(trades.map((t) => t.blockNumber)))
     const blockDetails = await Promise.all(uniqueBlocks.map(async (bn) => {
@@ -133,22 +124,17 @@ export async function buildMarketData(token?: string): Promise<{
     for (const t of trades) t.timestamp = blockToTs[t.blockNumber]
   } catch {}
 
-  // Reduce to active asks grouped by price
   let asks = Object.values(asksById)
     .filter((a) => a.remaining > 0 && (!token || a.token.toLowerCase() === token.toLowerCase()))
     .map((a) => ({ price6: a.price6, amount: a.remaining, seller: a.seller, id: a.id }))
-
-  // sort asks ascending (best ask first)
   asks.sort((a, b) => a.price6 - b.price6)
-
-  // Infer bids by grouping buys at price levels for display (optional)
   const bidsMap = new Map<number, number>()
   for (const t of trades) {
     if (token && t.token && t.token.toLowerCase() !== token.toLowerCase()) continue
     bidsMap.set(t.price6, (bidsMap.get(t.price6) || 0) + t.amount)
   }
   const bids = Array.from(bidsMap.entries()).map(([price6, amount]) => ({ price6, amount }))
-  bids.sort((a, b) => b.price6 - a.price6) // best bid first if present
+  bids.sort((a, b) => b.price6 - a.price6)
 
   const last = trades
     .filter((t) => (!token || t.token.toLowerCase() === token.toLowerCase()))

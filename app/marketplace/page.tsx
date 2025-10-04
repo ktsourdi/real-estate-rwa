@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useAccount, useWriteContract } from 'wagmi'
 import { useEffect, useState } from 'react'
 import { marketplaceAbi, erc20Abi, propertySaleAbi } from '@/lib/abis'
@@ -52,6 +53,10 @@ export default function MarketplacePage() {
   const [trades, setTrades] = useState<TradeEvent[]>([])
   const [lastPrice6, setLastPrice6] = useState<number | null>(null)
   const [buyQty, setBuyQty] = useState<string>('')
+  const [selectedAskId, setSelectedAskId] = useState<number | null>(null)
+  const [range, setRange] = useState<'1H' | '1D' | '1W' | 'ALL'>('ALL')
+  const [sellQty, setSellQty] = useState<string>('')
+  const [sellPrice, setSellPrice] = useState<string>('')
 
   // Load listings from localStorage and chain (fallback)
   useEffect(() => {
@@ -121,9 +126,9 @@ export default function MarketplacePage() {
         setOrderBook(orderBook)
         setTrades(trades)
         setLastPrice6(lastPrice6)
-        // Default buy qty to 1 if there is liquidity
         const bestAsk = orderBook.asks?.[0]
         setBuyQty(bestAsk ? '1' : '')
+        setSelectedAskId(bestAsk?.id ?? null)
       } catch {
         if (mounted) { setOrderBook(null); setTrades([]); setLastPrice6(null) }
       }
@@ -345,8 +350,8 @@ export default function MarketplacePage() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {(orderBook?.asks || []).slice(0, 10).map((a, idx) => (
-                          <TableRow key={idx} className="hover:bg-red-50/50 dark:hover:bg-red-950/10">
+                        {(orderBook?.asks || []).slice(0, 10).map((a: any, idx: number) => (
+                          <TableRow key={idx} className={`cursor-pointer hover:bg-red-50/50 dark:hover:bg-red-950/10 ${selectedAskId === a.id ? 'bg-red-50/60 dark:bg-red-950/20' : ''}`} onClick={() => { setSelectedAskId(a.id); setBuyQty(String(Math.max(1, Math.min(a.amount, parseInt(buyQty||'1'))))); }}>
                             <TableCell className="text-red-600 dark:text-red-400">${(a.price6/1e6).toFixed(2)}</TableCell>
                             <TableCell>{a.amount}</TableCell>
                             <TableCell>${((a.price6/1e6) * a.amount).toFixed(2)}</TableCell>
@@ -369,7 +374,7 @@ export default function MarketplacePage() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {(orderBook?.bids || []).slice(0, 10).map((b, idx) => (
+                        {(orderBook?.bids || []).slice(0, 10).map((b: any, idx: number) => (
                           <TableRow key={idx} className="hover:bg-emerald-50/50 dark:hover:bg-emerald-950/10">
                             <TableCell className="text-emerald-600 dark:text-emerald-400">${(b.price6/1e6).toFixed(2)}</TableCell>
                             <TableCell>{b.amount}</TableCell>
@@ -377,7 +382,9 @@ export default function MarketplacePage() {
                           </TableRow>
                         ))}
                         {(!orderBook?.bids || orderBook.bids.length === 0) && (
-                          <TableRow><TableCell colSpan={3} className="text-muted-foreground">No bids (derived)</TableCell></TableRow>
+                          <TableRow>
+                            <TableCell colSpan={3} className="text-muted-foreground">No bids (derived)</TableCell>
+                          </TableRow>
                         )}
                       </TableBody>
                     </Table>
@@ -386,9 +393,21 @@ export default function MarketplacePage() {
 
                 {/* Price history graph */}
                 <div className="rounded-xl border border-border/50 p-3">
-                  <div className="text-xs text-muted-foreground mb-2">Price history</div>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-xs text-muted-foreground">Price history</div>
+                    <div className="flex gap-1">
+                      {(['1H','1D','1W','ALL'] as const).map(r => (
+                        <Button key={r} size="sm" variant={range===r?'default':'outline'} onClick={()=> setRange(r)}>{r}</Button>
+                      ))}
+                    </div>
+                  </div>
                   <ChartContainer config={{ price: { label: 'USD', color: 'hsl(160, 84%, 39%)' } }} className="h-64 w-full">
-                    <AreaChart data={(trades || []).filter(t => t.timestamp).sort((a,b)=> (a.timestamp||0)-(b.timestamp||0)).map(t => ({
+                    <AreaChart data={(trades || []).filter((t: any) => t.timestamp).filter((t: any) => {
+                      if (range === 'ALL') return true
+                      const now = Math.floor(Date.now()/1000)
+                      const cutoff = range === '1H' ? now-3600 : range === '1D' ? now-86400 : now-604800
+                      return (t.timestamp||0) >= cutoff
+                    }).sort((a: any,b: any)=> (a.timestamp||0)-(b.timestamp||0)).map((t: any) => ({
                       time: new Date((t.timestamp||0) * 1000).toLocaleTimeString(),
                       price: Number((t.price6/1e6).toFixed(2)),
                     }))}>
@@ -404,42 +423,70 @@ export default function MarketplacePage() {
 
               {/* Trade panel */}
               <div className="space-y-4">
-                <div className="rounded-xl border border-border/50 p-4">
-                  <div className="text-sm font-semibold mb-3">Buy</div>
-                  {(() => {
-                    const bestAsk = orderBook?.asks?.[0]
-                    if (!bestAsk) return <div className="text-sm text-muted-foreground">No liquidity available</div>
-                    const qty = Math.max(0, parseInt(buyQty || '0'))
-                    const clamped = Math.min(qty, bestAsk.amount || 0)
-                    const total = (bestAsk.price6/1e6) * (clamped || 0)
-                    return (
-                      <div className="space-y-3">
-                        <div className="text-xs text-muted-foreground">Top of book: <span className="font-medium text-foreground">${(bestAsk.price6/1e6).toFixed(2)}</span> • Available: <span className="font-medium">{bestAsk.amount}</span></div>
-                        <input className="w-full h-11 rounded-lg border border-border/60 px-3 bg-background/80" placeholder="Amount" value={buyQty} onChange={(e)=> setBuyQty(e.target.value)} type="number" min={1} />
-                        <div className="flex items-center gap-2">
-                          {[1,10,100].map(n => (
-                            <Button key={n} type="button" variant="outline" size="sm" onClick={()=> setBuyQty(String(Math.min((parseInt(buyQty||'0')||0)+n, bestAsk.amount)))}>+{n}</Button>
-                          ))}
-                          <Button type="button" variant="outline" size="sm" onClick={()=> setBuyQty(String(bestAsk.amount))}>Max</Button>
-                        </div>
-                        <div className="text-sm text-muted-foreground">Total: <span className="font-medium text-foreground">${total.toFixed(2)}</span></div>
-                        <Button className="w-full h-11" disabled={!address || clamped <= 0} onClick={async ()=>{
-                          try {
-                            if (!address) return
-                            const amount = BigInt(clamped)
-                            const cost = BigInt(Math.round(bestAsk.price6 * clamped))
-                            await writeContractAsync({ address: USD, abi: erc20Abi, functionName: 'approve', args: [MARKETPLACE, cost] })
-                            await writeContractAsync({ address: MARKETPLACE, abi: marketplaceAbi, functionName: 'buy', args: [BigInt(bestAsk.id), amount] })
-                            setBuyQty('')
-                            toast({ title: 'Trade submitted', description: 'Waiting for confirmation…' })
-                          } catch (e:any) {
-                            toast({ title: 'Trade failed', description: e?.message || 'Error', variant: 'destructive' })
-                          }
-                        }}>Trade</Button>
-                      </div>
-                    )
-                  })()}
-                </div>
+                <Tabs defaultValue="buy">
+                  <TabsList className="w-full">
+                    <TabsTrigger className="flex-1" value="buy">Buy</TabsTrigger>
+                    <TabsTrigger className="flex-1" value="sell">Sell</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="buy">
+                    <div className="rounded-xl border border-border/50 p-4">
+                      {(() => {
+                        const selected = orderBook?.asks?.find((a: any) => a.id === selectedAskId) || orderBook?.asks?.[0]
+                        if (!selected) return <div className="text-sm text-muted-foreground">No liquidity available</div>
+                        const qty = Math.max(0, parseInt(buyQty || '0'))
+                        const clamped = Math.min(qty, selected.amount || 0)
+                        const total = (selected.price6/1e6) * (clamped || 0)
+                        return (
+                          <div className="space-y-3">
+                            <div className="text-xs text-muted-foreground">Selected: <span className="font-medium text-foreground">${(selected.price6/1e6).toFixed(2)}</span> • Available: <span className="font-medium">{selected.amount}</span></div>
+                            <input className="w-full h-11 rounded-lg border border-border/60 px-3 bg-background/80" placeholder="Amount" value={buyQty} onChange={(e)=> setBuyQty(e.target.value)} type="number" min={1} />
+                            <div className="flex items-center gap-2">
+                              {[1,10,100].map(n => (
+                                <Button key={n} type="button" variant="outline" size="sm" onClick={()=> setBuyQty(String(Math.min((parseInt(buyQty||'0')||0)+n, selected.amount)))}>+{n}</Button>
+                              ))}
+                              <Button type="button" variant="outline" size="sm" onClick={()=> setBuyQty(String(selected.amount))}>Max</Button>
+                            </div>
+                            <div className="text-sm text-muted-foreground">Total: <span className="font-medium text-foreground">${total.toFixed(2)}</span></div>
+                            <Button className="w-full h-11" disabled={!address || clamped <= 0} onClick={async ()=>{
+                              try {
+                                if (!address) return
+                                const amount = BigInt(clamped)
+                                const cost = BigInt(Math.round(selected.price6 * clamped))
+                                await writeContractAsync({ address: USD, abi: erc20Abi, functionName: 'approve', args: [MARKETPLACE, cost] })
+                                await writeContractAsync({ address: MARKETPLACE, abi: marketplaceAbi, functionName: 'buy', args: [BigInt(selected.id), amount] })
+                                setBuyQty('')
+                                toast({ title: 'Trade submitted', description: 'Waiting for confirmation…' })
+                              } catch (e:any) {
+                                toast({ title: 'Trade failed', description: e?.message || 'Error', variant: 'destructive' })
+                              }
+                            }}>Trade</Button>
+                          </div>
+                        )
+                      })()}
+                    </div>
+                  </TabsContent>
+                  <TabsContent value="sell">
+                    <div className="rounded-xl border border-border/50 p-4 space-y-3">
+                      <div className="text-xs text-muted-foreground">Sell tokens by creating a listing at your price</div>
+                      <input className="w-full h-11 rounded-lg border border-border/60 px-3 bg-background/80" placeholder="Amount" value={sellQty} onChange={(e)=> setSellQty(e.target.value)} type="number" min={1} />
+                      <input className="w-full h-11 rounded-lg border border-border/60 px-3 bg-background/80" placeholder="Price per token (USD)" value={sellPrice} onChange={(e)=> setSellPrice(e.target.value)} type="number" min={0} step={0.01} />
+                      <Button className="w-full h-11" disabled={!address || !form.saleOrToken || (parseInt(sellQty||'0')<=0) || (parseFloat(sellPrice||'0')<=0)} onClick={async ()=>{
+                        try {
+                          if (!address || !form.saleOrToken) return
+                          const amount = BigInt(Math.max(0, parseInt(sellQty||'0')))
+                          if (amount <= BigInt(0)) return
+                          const price6 = BigInt(Math.round((parseFloat(sellPrice||'0')||0) * 1e6))
+                          await writeContractAsync({ address: form.saleOrToken as `0x${string}`, abi: erc20Abi, functionName: 'approve', args: [MARKETPLACE, amount] })
+                          await writeContractAsync({ address: MARKETPLACE, abi: marketplaceAbi, functionName: 'createListing', args: [form.saleOrToken as `0x${string}`, amount, price6] })
+                          setSellQty(''); setSellPrice('')
+                          toast({ title: 'Listing submitted', description: 'Waiting for confirmation…' })
+                        } catch (e:any) {
+                          toast({ title: 'Sell failed', description: e?.message || 'Error', variant: 'destructive' })
+                        }
+                      }}>List</Button>
+                    </div>
+                  </TabsContent>
+                </Tabs>
               </div>
             </div>
           </CardContent>
