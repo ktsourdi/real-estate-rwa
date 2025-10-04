@@ -484,6 +484,8 @@ export default function MarketplacePage() {
                         const qty = Math.max(0, parseInt(buyQty || '0'))
                         const clamped = Math.min(qty, selected.amount || 0)
                         const total = (selected.price6/1e6) * (clamped || 0)
+                        const cost = BigInt(Math.round(selected.price6 * clamped))
+                        const hasVault = (vaultBalance || BigInt(0)) >= cost
                         return (
                           <div className="space-y-3">
                             <div className="text-xs text-muted-foreground">Selected: <span className="font-medium text-foreground">${(selected.price6/1e6).toFixed(2)}</span> • Available: <span className="font-medium">{selected.amount}</span></div>
@@ -495,7 +497,10 @@ export default function MarketplacePage() {
                               <Button type="button" variant="outline" size="sm" onClick={()=> setBuyQty(String(selected.amount))}>Max</Button>
                             </div>
                             <div className="text-sm text-muted-foreground">Total: <span className="font-medium text-foreground">${total.toFixed(2)}</span></div>
-                            <Button className="w-full h-11" disabled={!address || clamped <= 0} onClick={async ()=>{
+                            {!hasVault && (
+                              <div className="text-xs text-amber-600 dark:text-amber-400">Insufficient in-app balance. <Link href="/wallet" className="underline">Deposit DUSD</Link> to proceed.</div>
+                            )}
+                            <Button className="w-full h-11" disabled={!address || clamped <= 0 || !hasVault} onClick={async ()=>{
                               try {
                                 if (!address) return
                                 const amount = BigInt(clamped)
