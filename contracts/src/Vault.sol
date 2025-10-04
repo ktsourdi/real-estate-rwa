@@ -1,22 +1,25 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-interface IERC20 {
-  function transfer(address to, uint256 value) external returns (bool);
-  function transferFrom(address from, address to, uint256 value) external returns (bool);
-  function balanceOf(address account) external view returns (uint256);
-  function allowance(address owner, address spender) external view returns (uint256);
-}
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 // Simple vault to hold DUSD balances for gasless in-app trading.
 // - Users deposit DUSD via transferFrom (requires approve in their browser wallet)
 // - Users withdraw and pay a fee (feeBps), retained in the contract
 // - Owner can sweep only the accumulated fees (not user balances)
+interface IMarketplace {
+  function buy(uint256 id, uint256 amount) external;
+  function listings(uint256 id) external view returns (address seller, address token, uint256 remaining, uint256 pricePerTokenUSD6);
+}
+
 contract Vault {
+  using SafeERC20 for IERC20;
   address public immutable token; // DUSD token
   uint16 public immutable feeBps; // e.g. 200 = 2%
 
   address public owner;
+  address public marketplace; // optional marketplace for in-app buys
 
   mapping(address => uint256) public balanceOf;
   uint256 internal totalUserBalances; // sum of user balances to protect against fee sweeps on user funds
@@ -46,10 +49,20 @@ contract Vault {
     emit OwnerChanged(newOwner);
   }
 
+  function setMarketplace(address marketplace_) external onlyOwner {
+    require(marketplace_ != address(0), "market");
+    marketplace = marketplace_;
+    // Pre-approve marketplace to pull USD for buys
+    // infinite allowance pattern; safe for demo, could refine with SafeERC20
+    // set allowance (reset to 0 first for safety with some ERC20s)
+    IERC20(token).approve(marketplace_, 0);
+    IERC20(token).approve(marketplace_, type(uint256).max);
+  }
+
   function deposit(uint256 amount) external {
     require(amount > 0, "amt");
     // Pull funds from user first
-    require(IERC20(token).transferFrom(msg.sender, address(this), amount), "transferFrom");
+    IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
     // Update state after successful transfer
     balanceOf[msg.sender] += amount;
     totalUserBalances += amount;
@@ -67,7 +80,7 @@ contract Vault {
     uint256 fee = (amount * feeBps) / 10_000;
     uint256 payout = amount - fee;
 
-    require(IERC20(token).transfer(msg.sender, payout), "transfer");
+    IERC20(token).safeTransfer(msg.sender, payout);
     emit Withdrawn(msg.sender, amount, fee);
   }
 
@@ -77,8 +90,26 @@ contract Vault {
     uint256 contractBal = IERC20(token).balanceOf(address(this));
     uint256 fees = contractBal - totalUserBalances;
     require(amount <= fees, "exceeds fees");
-    require(IERC20(token).transfer(to, amount), "transfer");
+    IERC20(token).safeTransfer(to, amount);
     emit FeesWithdrawn(to, amount);
+  }
+
+  // Buy marketplace listing using user's in-app balance; sends property tokens to receiver
+  function buyFromMarketplace(uint256 id, uint256 amount, address receiver) external {
+    require(receiver != address(0), "recv");
+    require(marketplace != address(0), "market");
+    (, address tokenAddr, uint256 remaining, uint256 price6) = IMarketplace(marketplace).listings(id);
+    require(amount > 0 && amount <= remaining, "amount");
+    uint256 cost = amount * price6;
+    uint256 bal = balanceOf[msg.sender];
+    require(bal >= cost, "bal");
+    // Debit first
+    balanceOf[msg.sender] = bal - cost;
+    totalUserBalances -= cost;
+    // Execute buy; Marketplace will transfer USD from this contract due to allowance
+    IMarketplace(marketplace).buy(id, amount);
+    // Forward purchased property tokens to receiver
+    IERC20(tokenAddr).safeTransfer(receiver, amount);
   }
 }
 

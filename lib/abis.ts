@@ -120,11 +120,19 @@ export const marketplaceAbi = [
 export const vaultAbi = [
   { "type": "event", "name": "Deposited", "inputs": [ { "name": "user", "type": "address", "indexed": true }, { "name": "amount", "type": "uint256", "indexed": false } ] },
   { "type": "event", "name": "Withdrawn", "inputs": [ { "name": "user", "type": "address", "indexed": true }, { "name": "gross", "type": "uint256", "indexed": false }, { "name": "fee", "type": "uint256", "indexed": false } ] },
+  { "type": "event", "name": "OwnerChanged", "inputs": [ { "name": "owner", "type": "address", "indexed": true } ] },
+  { "type": "event", "name": "FeesWithdrawn", "inputs": [ { "name": "to", "type": "address", "indexed": true }, { "name": "amount", "type": "uint256", "indexed": false } ] },
   { "type": "function", "name": "token", "stateMutability": "view", "inputs": [], "outputs": [ { "type": "address" } ] },
   { "type": "function", "name": "feeBps", "stateMutability": "view", "inputs": [], "outputs": [ { "type": "uint16" } ] },
+  { "type": "function", "name": "owner", "stateMutability": "view", "inputs": [], "outputs": [ { "type": "address" } ] },
+  { "type": "function", "name": "marketplace", "stateMutability": "view", "inputs": [], "outputs": [ { "type": "address" } ] },
   { "type": "function", "name": "balanceOf", "stateMutability": "view", "inputs": [ { "name": "user", "type": "address" } ], "outputs": [ { "type": "uint256" } ] },
   { "type": "function", "name": "deposit", "stateMutability": "nonpayable", "inputs": [ { "name": "amount", "type": "uint256" } ], "outputs": [] },
-  { "type": "function", "name": "withdraw", "stateMutability": "nonpayable", "inputs": [ { "name": "amount", "type": "uint256" } ], "outputs": [] }
+  { "type": "function", "name": "withdraw", "stateMutability": "nonpayable", "inputs": [ { "name": "amount", "type": "uint256" } ], "outputs": [] },
+  { "type": "function", "name": "withdrawFees", "stateMutability": "nonpayable", "inputs": [ { "name": "to", "type": "address" }, { "name": "amount", "type": "uint256" } ], "outputs": [] },
+  { "type": "function", "name": "setOwner", "stateMutability": "nonpayable", "inputs": [ { "name": "newOwner", "type": "address" } ], "outputs": [] },
+  { "type": "function", "name": "setMarketplace", "stateMutability": "nonpayable", "inputs": [ { "name": "marketplace_", "type": "address" } ], "outputs": [] },
+  { "type": "function", "name": "buyFromMarketplace", "stateMutability": "nonpayable", "inputs": [ { "name": "id", "type": "uint256" }, { "name": "amount", "type": "uint256" }, { "name": "receiver", "type": "address" } ], "outputs": [] }
 ] as const
 
 

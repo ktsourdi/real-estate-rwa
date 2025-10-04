@@ -504,14 +504,18 @@ export default function MarketplacePage() {
                               try {
                                 if (!address) return
                                 const amount = BigInt(clamped)
-                                const cost = BigInt(Math.round(selected.price6 * clamped))
-                                try {
-                                  const allowance = await publicClient.readContract({ address: USD as `0x${string}`, abi: erc20Abi as any, functionName: 'allowance', args: [address as `0x${string}`, MARKETPLACE] }) as any
-                                  if (BigInt(allowance || 0) < cost) {
-                                    await writeContractAsync({ address: USD, abi: erc20Abi, functionName: 'approve', args: [MARKETPLACE, cost] })
-                                  }
-                                } catch {}
-                                await writeContractAsync({ address: MARKETPLACE, abi: marketplaceAbi, functionName: 'buy', args: [BigInt(selected.id), amount] })
+                                if (VAULT) {
+                                  await writeContractAsync({ address: VAULT, abi: vaultAbi, functionName: 'buyFromMarketplace', args: [BigInt(selected.id), amount, address as `0x${string}`] })
+                                } else {
+                                  const cost = BigInt(Math.round(selected.price6 * clamped))
+                                  try {
+                                    const allowance = await publicClient.readContract({ address: USD as `0x${string}`, abi: erc20Abi as any, functionName: 'allowance', args: [address as `0x${string}`, MARKETPLACE] }) as any
+                                    if (BigInt(allowance || 0) < cost) {
+                                      await writeContractAsync({ address: USD, abi: erc20Abi, functionName: 'approve', args: [MARKETPLACE, cost] })
+                                    }
+                                  } catch {}
+                                  await writeContractAsync({ address: MARKETPLACE, abi: marketplaceAbi, functionName: 'buy', args: [BigInt(selected.id), amount] })
+                                }
                                 setBuyQty('')
                                 toast({ title: 'Trade submitted', description: 'Waiting for confirmation…' })
                                 await refreshMarket()
