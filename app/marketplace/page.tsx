@@ -3,12 +3,15 @@
 import { DashboardLayout } from '@/components/layout/dashboard-layout'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts'
 import { useAccount, useWriteContract } from 'wagmi'
 import { useEffect, useState } from 'react'
 import { marketplaceAbi, erc20Abi, propertySaleAbi } from '@/lib/abis'
 import { publicClient } from '@/lib/publicClient'
 import { useToast } from '@/hooks/use-toast'
-import { rebuildMarketplaceListingsFromChain } from '@/lib/market'
+import { rebuildMarketplaceListingsFromChain, buildMarketData, type OrderBook, type TradeEvent } from '@/lib/market'
 import { parseEventLogs } from 'viem'
 import Image from 'next/image'
 
@@ -45,6 +48,10 @@ export default function MarketplacePage() {
     return u
   }
   const [previewImgSrc, setPreviewImgSrc] = useState<string>(fallbackImage)
+  const [orderBook, setOrderBook] = useState<OrderBook | null>(null)
+  const [trades, setTrades] = useState<TradeEvent[]>([])
+  const [lastPrice6, setLastPrice6] = useState<number | null>(null)
+  const [buyQty, setBuyQty] = useState<string>('')
 
   // Load listings from localStorage and chain (fallback)
   useEffect(() => {
@@ -102,6 +109,27 @@ export default function MarketplacePage() {
     }
     load(); return () => { mounted = false }
   }, [address, form.saleOrToken])
+
+  // Load market data (order book + trades) for selected token
+  useEffect(() => {
+    let mounted = true
+    async function loadMarket() {
+      if (!form.saleOrToken) { if (mounted) { setOrderBook(null); setTrades([]); setLastPrice6(null) } ; return }
+      try {
+        const { orderBook, trades, lastPrice6 } = await buildMarketData(form.saleOrToken)
+        if (!mounted) return
+        setOrderBook(orderBook)
+        setTrades(trades)
+        setLastPrice6(lastPrice6)
+        // Default buy qty to 1 if there is liquidity
+        const bestAsk = orderBook.asks?.[0]
+        setBuyQty(bestAsk ? '1' : '')
+      } catch {
+        if (mounted) { setOrderBook(null); setTrades([]); setLastPrice6(null) }
+      }
+    }
+    loadMarket(); return () => { mounted = false }
+  }, [form.saleOrToken])
 
   // Load owned amounts (from sale.purchased) for all catalog tokens to filter dropdown to owned-only
   useEffect(() => {
@@ -284,91 +312,135 @@ export default function MarketplacePage() {
           </CardContent>
         </Card>
 
-        {/* Listings */}
+        {/* Market View: Order Book + Graph + Trade Panel */}
         <Card className="bg-card/50 backdrop-blur-sm border-border/50 shadow-lg">
           <CardHeader className="bg-gradient-to-r from-blue-50/50 to-blue-100/30 dark:from-blue-950/30 dark:to-blue-900/20 border-b border-blue-200/30 dark:border-blue-800/30">
-            <CardTitle className="text-xl bg-gradient-to-r from-blue-700 to-blue-600 dark:from-blue-400 dark:to-blue-300 bg-clip-text text-transparent">Active Listings</CardTitle>
-            <p className="text-sm text-muted-foreground mt-2">Browse and purchase property tokens from other investors</p>
+            <CardTitle className="text-xl bg-gradient-to-r from-blue-700 to-blue-600 dark:from-blue-400 dark:to-blue-300 bg-clip-text text-transparent">Market</CardTitle>
+            <p className="text-sm text-muted-foreground mt-2">Live order book and recent trades</p>
           </CardHeader>
           <CardContent className="p-6">
-            <div className="space-y-4">
-              {listings.length === 0 && (
-                <div className="text-center py-12">
-                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 flex items-center justify-center">
-                    <svg className="w-8 h-8 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                    </svg>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Order Book */}
+              <div className="lg:col-span-2 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-muted-foreground">Best Bid / Ask</div>
+                  <div className="text-lg font-semibold">
+                    {(() => {
+                      const bid = orderBook?.bids?.[0]?.price6
+                      const ask = orderBook?.asks?.[0]?.price6
+                      if (!bid && !ask && lastPrice6) return `$${(lastPrice6/1e6).toFixed(2)}`
+                      return `${bid ? `$${(bid/1e6).toFixed(2)}` : '—'} / ${ask ? `$${(ask/1e6).toFixed(2)}` : '—'}`
+                    })()}
                   </div>
-                  <p className="text-sm text-muted-foreground">No active listings yet. Be the first to create one!</p>
                 </div>
-              )}
-              {listings.map((l:any, i:number) => (
-                <div key={i} className="group p-6 border border-border/50 rounded-xl bg-gradient-to-r from-muted/10 to-muted/5 hover:from-muted/20 hover:to-muted/10 transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-100 to-emerald-200 dark:from-emerald-900 dark:to-emerald-800 flex items-center justify-center">
-                          <svg className="w-5 h-5 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-4m-5 0H3m2 0h4M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                          </svg>
-                        </div>
-                        <div>
-                          <div className="font-semibold text-lg">{l.name}</div>
-                          <div className="text-xs text-muted-foreground">Seller: {l.seller?.slice(0,6)}...{l.seller?.slice(-4)}</div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                      <div className="text-center">
-                        <div className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-emerald-500 bg-clip-text text-transparent">{l.remaining}</div>
-                        <div className="text-xs text-muted-foreground">tokens available</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent">${(l.price6/1e6).toFixed?.(2) || (l.price6/1e6)}</div>
-                        <div className="text-xs text-muted-foreground">per token</div>
-                      </div>
-                      
-                      <div className="flex gap-2">
-                        <Button 
-                          variant="outline" 
-                          className="bg-gradient-to-r from-emerald-50 to-emerald-100 dark:from-emerald-950/50 dark:to-emerald-900/30 border-emerald-200 dark:border-emerald-800 hover:from-emerald-100 hover:to-emerald-200 dark:hover:from-emerald-900/70 dark:hover:to-emerald-800/50 transition-all duration-200 hover:scale-105"
-                          onClick={async () => {
-                            try {
-                              const amount = BigInt(1)
-                              const cost = BigInt(Math.round((l.price6) * 1))
-                              await writeContractAsync({ address: USD, abi: erc20Abi, functionName: 'approve', args: [MARKETPLACE, cost] })
-                              await writeContractAsync({ address: MARKETPLACE, abi: marketplaceAbi, functionName: 'buy', args: [BigInt(l.id || 0), amount] })
-                              // Update local remaining
-                              const updated = listings.map((x:any, idx:number) => idx === i ? { ...x, remaining: Math.max(0, x.remaining - 1) } : x).filter((x:any) => x.remaining > 0)
-                              localStorage.setItem('rwa_market_listings', JSON.stringify(updated))
-                              setListings(updated)
-                            } catch {}
-                          }}
-                        >
-                          Buy 1
-                        </Button>
-                        {address?.toLowerCase() === l.seller?.toLowerCase() && (
-                          <Button 
-                            variant="ghost" 
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20 transition-all duration-200"
-                            onClick={async () => {
-                              try {
-                                await writeContractAsync({ address: MARKETPLACE, abi: marketplaceAbi, functionName: 'cancel', args: [BigInt(l.id || 0)] })
-                                const updated = listings.filter((_, idx:number) => idx !== i)
-                                localStorage.setItem('rwa_market_listings', JSON.stringify(updated))
-                                setListings(updated)
-                              } catch {}
-                            }}
-                          >
-                            Cancel
-                          </Button>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="rounded-xl border border-border/50">
+                    <div className="px-3 py-2 text-xs text-muted-foreground">Asks</div>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Price</TableHead>
+                          <TableHead>Amount</TableHead>
+                          <TableHead>Total</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {(orderBook?.asks || []).slice(0, 10).map((a, idx) => (
+                          <TableRow key={idx} className="hover:bg-red-50/50 dark:hover:bg-red-950/10">
+                            <TableCell className="text-red-600 dark:text-red-400">${(a.price6/1e6).toFixed(2)}</TableCell>
+                            <TableCell>{a.amount}</TableCell>
+                            <TableCell>${((a.price6/1e6) * a.amount).toFixed(2)}</TableCell>
+                          </TableRow>
+                        ))}
+                        {(!orderBook?.asks || orderBook.asks.length === 0) && (
+                          <TableRow><TableCell colSpan={3} className="text-muted-foreground">No asks</TableCell></TableRow>
                         )}
-                      </div>
-                    </div>
+                      </TableBody>
+                    </Table>
+                  </div>
+                  <div className="rounded-xl border border-border/50">
+                    <div className="px-3 py-2 text-xs text-muted-foreground">Bids</div>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Price</TableHead>
+                          <TableHead>Amount</TableHead>
+                          <TableHead>Total</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {(orderBook?.bids || []).slice(0, 10).map((b, idx) => (
+                          <TableRow key={idx} className="hover:bg-emerald-50/50 dark:hover:bg-emerald-950/10">
+                            <TableCell className="text-emerald-600 dark:text-emerald-400">${(b.price6/1e6).toFixed(2)}</TableCell>
+                            <TableCell>{b.amount}</TableCell>
+                            <TableCell>${((b.price6/1e6) * b.amount).toFixed(2)}</TableCell>
+                          </TableRow>
+                        ))}
+                        {(!orderBook?.bids || orderBook.bids.length === 0) && (
+                          <TableRow><TableCell colSpan={3} className="text-muted-foreground">No bids (derived)</TableCell></TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
                   </div>
                 </div>
-              ))}
+
+                {/* Price history graph */}
+                <div className="rounded-xl border border-border/50 p-3">
+                  <div className="text-xs text-muted-foreground mb-2">Price history</div>
+                  <ChartContainer config={{ price: { label: 'USD', color: 'hsl(160, 84%, 39%)' } }} className="h-64 w-full">
+                    <AreaChart data={(trades || []).filter(t => t.timestamp).sort((a,b)=> (a.timestamp||0)-(b.timestamp||0)).map(t => ({
+                      time: new Date((t.timestamp||0) * 1000).toLocaleTimeString(),
+                      price: Number((t.price6/1e6).toFixed(2)),
+                    }))}>
+                      <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                      <XAxis dataKey="time" tickLine={false} axisLine={false} minTickGap={24} />
+                      <YAxis tickLine={false} axisLine={false} width={40} domain={['dataMin', 'dataMax']} />
+                      <Area dataKey="price" type="monotone" stroke="var(--color-price)" fill="var(--color-price)" fillOpacity={0.15} />
+                      <ChartTooltip cursor={true} content={<ChartTooltipContent nameKey="price" />} />
+                    </AreaChart>
+                  </ChartContainer>
+                </div>
+              </div>
+
+              {/* Trade panel */}
+              <div className="space-y-4">
+                <div className="rounded-xl border border-border/50 p-4">
+                  <div className="text-sm font-semibold mb-3">Buy</div>
+                  {(() => {
+                    const bestAsk = orderBook?.asks?.[0]
+                    if (!bestAsk) return <div className="text-sm text-muted-foreground">No liquidity available</div>
+                    const qty = Math.max(0, parseInt(buyQty || '0'))
+                    const clamped = Math.min(qty, bestAsk.amount || 0)
+                    const total = (bestAsk.price6/1e6) * (clamped || 0)
+                    return (
+                      <div className="space-y-3">
+                        <div className="text-xs text-muted-foreground">Top of book: <span className="font-medium text-foreground">${(bestAsk.price6/1e6).toFixed(2)}</span> • Available: <span className="font-medium">{bestAsk.amount}</span></div>
+                        <input className="w-full h-11 rounded-lg border border-border/60 px-3 bg-background/80" placeholder="Amount" value={buyQty} onChange={(e)=> setBuyQty(e.target.value)} type="number" min={1} />
+                        <div className="flex items-center gap-2">
+                          {[1,10,100].map(n => (
+                            <Button key={n} type="button" variant="outline" size="sm" onClick={()=> setBuyQty(String(Math.min((parseInt(buyQty||'0')||0)+n, bestAsk.amount)))}>+{n}</Button>
+                          ))}
+                          <Button type="button" variant="outline" size="sm" onClick={()=> setBuyQty(String(bestAsk.amount))}>Max</Button>
+                        </div>
+                        <div className="text-sm text-muted-foreground">Total: <span className="font-medium text-foreground">${total.toFixed(2)}</span></div>
+                        <Button className="w-full h-11" disabled={!address || clamped <= 0} onClick={async ()=>{
+                          try {
+                            if (!address) return
+                            const amount = BigInt(clamped)
+                            const cost = BigInt(Math.round(bestAsk.price6 * clamped))
+                            await writeContractAsync({ address: USD, abi: erc20Abi, functionName: 'approve', args: [MARKETPLACE, cost] })
+                            await writeContractAsync({ address: MARKETPLACE, abi: marketplaceAbi, functionName: 'buy', args: [BigInt(bestAsk.id), amount] })
+                            setBuyQty('')
+                            toast({ title: 'Trade submitted', description: 'Waiting for confirmation…' })
+                          } catch (e:any) {
+                            toast({ title: 'Trade failed', description: e?.message || 'Error', variant: 'destructive' })
+                          }
+                        }}>Trade</Button>
+                      </div>
+                    )
+                  })()}
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
