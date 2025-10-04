@@ -13,6 +13,11 @@ interface IMarketplace {
   function listings(uint256 id) external view returns (address seller, address token, uint256 remaining, uint256 pricePerTokenUSD6);
 }
 
+interface IPropertySale {
+  function pricePerToken() external view returns (uint256);
+  function buyFor(address buyer, uint256 amount) external;
+}
+
 contract Vault {
   using SafeERC20 for IERC20;
   address public immutable token; // DUSD token
@@ -53,10 +58,7 @@ contract Vault {
     require(marketplace_ != address(0), "market");
     marketplace = marketplace_;
     // Pre-approve marketplace to pull USD for buys
-    // infinite allowance pattern; safe for demo, could refine with SafeERC20
-    // set allowance (reset to 0 first for safety with some ERC20s)
-    IERC20(token).approve(marketplace_, 0);
-    IERC20(token).approve(marketplace_, type(uint256).max);
+    IERC20(token).forceApprove(marketplace_, type(uint256).max);
   }
 
   function deposit(uint256 amount) external {
@@ -110,6 +112,21 @@ contract Vault {
     IMarketplace(marketplace).buy(id, amount);
     // Forward purchased property tokens to receiver
     IERC20(tokenAddr).safeTransfer(receiver, amount);
+  }
+
+  // Buy primary sale using user's in-app balance; credits purchased[buyer]
+  function buyFromPrimary(address sale, uint256 amount, address buyer) external {
+    require(sale != address(0) && buyer != address(0), "args");
+    uint256 price6 = IPropertySale(sale).pricePerToken();
+    uint256 cost = amount * price6;
+    uint256 bal = balanceOf[msg.sender];
+    require(bal >= cost, "bal");
+    // debit first
+    balanceOf[msg.sender] = bal - cost;
+    totalUserBalances -= cost;
+    // approve sale for transferFrom
+    IERC20(token).forceApprove(sale, cost);
+    IPropertySale(sale).buyFor(buyer, amount);
   }
 }
 

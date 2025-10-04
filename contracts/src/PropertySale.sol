@@ -40,6 +40,17 @@ contract PropertySale is Ownable {
         emit Purchased(msg.sender, amount, cost);
     }
 
+  // Allow a payer (e.g., Vault) to buy on behalf of a user using its own USD funds
+  function buyFor(address buyer, uint256 amount) external {
+    require(buyer != address(0), "buyer");
+    require(totalPurchased + amount <= MAX_SUPPLY, "exceeds");
+    uint256 cost = amount * pricePerToken;
+    purchased[buyer] += amount;
+    totalPurchased += amount;
+    USD.safeTransferFrom(msg.sender, address(this), cost);
+    emit Purchased(buyer, amount, cost);
+  }
+
     function settle() external onlyOwner {
         uint256 proceeds = totalPurchased * pricePerToken;
         USD.safeTransfer(owner(), proceeds);

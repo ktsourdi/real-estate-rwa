@@ -7,7 +7,7 @@ import { TrendingUp } from 'lucide-react'
 import Image from 'next/image'
 import { useEffect, useMemo, useState } from 'react'
 import { useAccount, useWriteContract } from 'wagmi'
-import { erc20Abi, propertySaleAbi } from '@/lib/abis'
+import { erc20Abi, propertySaleAbi, vaultAbi } from '@/lib/abis'
 import { publicClient } from '@/lib/publicClient'
 import { confettiBurst, showLoading } from '@/lib/confetti'
 import { useToast } from '@/hooks/use-toast'
@@ -96,6 +96,7 @@ function PropertyCard({ property, writeContractAsync }: { property: any, writeCo
   useEffect(() => { setImgSrc(normalizeImageUrl(property?.image)) }, [property?.image])
   const { address } = useAccount()
   const { toast } = useToast()
+  const VAULT = process.env.NEXT_PUBLIC_VAULT as `0x${string}` | undefined
 
   useEffect(() => {
     let mounted = true
@@ -225,19 +226,24 @@ function PropertyCard({ property, writeContractAsync }: { property: any, writeCo
                 if (!property.sale || price === null || !address) return
                 const amt = BigInt(parseInt(amount || '0'))
                 if (amt <= BigInt(0)) return
-                const allowance = price * amt
-                const usd = process.env.NEXT_PUBLIC_USD as `0x${string}`
-                const bal = await publicClient.readContract({ address: usd, abi: erc20Abi as any, functionName: 'balanceOf', args: [address] }) as any
-                if ((bal as bigint) < allowance) {
-                  loader?.remove()
-                  toast({ title: 'Insufficient USD', description: 'Not enough USD balance to buy this amount.', variant: 'destructive' })
-                  return
+                let buyHash: any
+                if (VAULT) {
+                  buyHash = await writeContractAsync({ address: VAULT, abi: vaultAbi, functionName: 'buyFromPrimary', args: [property.sale as `0x${string}`, amt, address as `0x${string}`] })
+                } else {
+                  const allowance = price * amt
+                  const usd = process.env.NEXT_PUBLIC_USD as `0x${string}`
+                  const bal = await publicClient.readContract({ address: usd, abi: erc20Abi as any, functionName: 'balanceOf', args: [address] }) as any
+                  if ((bal as bigint) < allowance) {
+                    loader?.remove()
+                    toast({ title: 'Insufficient USD', description: 'Not enough USD balance to buy this amount.', variant: 'destructive' })
+                    return
+                  }
+                  const approveHash = await writeContractAsync({ address: usd, abi: erc20Abi, functionName: 'approve', args: [property.sale as `0x${string}`, allowance] })
+                  if (approveHash) {
+                    await publicClient.waitForTransactionReceipt({ hash: approveHash as `0x${string}` })
+                  }
+                  buyHash = await writeContractAsync({ address: property.sale as `0x${string}`, abi: propertySaleAbi, functionName: 'buy', args: [amt] })
                 }
-                const approveHash = await writeContractAsync({ address: usd, abi: erc20Abi, functionName: 'approve', args: [property.sale as `0x${string}`, allowance] })
-                if (approveHash) {
-                  await publicClient.waitForTransactionReceipt({ hash: approveHash as `0x${string}` })
-                }
-                const buyHash = await writeContractAsync({ address: property.sale as `0x${string}`, abi: propertySaleAbi, functionName: 'buy', args: [amt] })
                 if (buyHash) {
                   await publicClient.waitForTransactionReceipt({ hash: buyHash as `0x${string}` })
                 }

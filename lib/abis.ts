@@ -75,6 +75,7 @@ export const propertySaleAbi = [
   { "type": "event", "name": "Refunded", "inputs": [ { "name": "buyer", "type": "address", "indexed": true }, { "name": "amount", "type": "uint256", "indexed": false }, { "name": "refund", "type": "uint256", "indexed": false } ] },
   { "type": "event", "name": "Settled", "inputs": [ { "name": "sold", "type": "uint256", "indexed": false }, { "name": "proceeds", "type": "uint256", "indexed": false } ] },
   { "type": "function", "name": "buy", "stateMutability": "nonpayable", "inputs": [{ "name": "amount", "type": "uint256" }], "outputs": [] },
+  { "type": "function", "name": "buyFor", "stateMutability": "nonpayable", "inputs": [{ "name": "buyer", "type": "address" }, { "name": "amount", "type": "uint256" }], "outputs": [] },
   { "type": "function", "name": "claim", "stateMutability": "nonpayable", "inputs": [], "outputs": [] },
   { "type": "function", "name": "settle", "stateMutability": "nonpayable", "inputs": [], "outputs": [] },
   { "type": "function", "name": "pricePerToken", "stateMutability": "view", "inputs": [], "outputs": [{ "type": "uint256" }] },
@@ -132,7 +133,8 @@ export const vaultAbi = [
   { "type": "function", "name": "withdrawFees", "stateMutability": "nonpayable", "inputs": [ { "name": "to", "type": "address" }, { "name": "amount", "type": "uint256" } ], "outputs": [] },
   { "type": "function", "name": "setOwner", "stateMutability": "nonpayable", "inputs": [ { "name": "newOwner", "type": "address" } ], "outputs": [] },
   { "type": "function", "name": "setMarketplace", "stateMutability": "nonpayable", "inputs": [ { "name": "marketplace_", "type": "address" } ], "outputs": [] },
-  { "type": "function", "name": "buyFromMarketplace", "stateMutability": "nonpayable", "inputs": [ { "name": "id", "type": "uint256" }, { "name": "amount", "type": "uint256" }, { "name": "receiver", "type": "address" } ], "outputs": [] }
+  { "type": "function", "name": "buyFromMarketplace", "stateMutability": "nonpayable", "inputs": [ { "name": "id", "type": "uint256" }, { "name": "amount", "type": "uint256" }, { "name": "receiver", "type": "address" } ], "outputs": [] },
+  { "type": "function", "name": "buyFromPrimary", "stateMutability": "nonpayable", "inputs": [ { "name": "sale", "type": "address" }, { "name": "amount", "type": "uint256" }, { "name": "buyer", "type": "address" } ], "outputs": [] }
 ] as const
 
 
