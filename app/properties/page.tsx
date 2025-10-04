@@ -97,6 +97,7 @@ function PropertyCard({ property, writeContractAsync }: { property: any, writeCo
   const { address } = useAccount()
   const { toast } = useToast()
   const VAULT = process.env.NEXT_PUBLIC_VAULT as `0x${string}` | undefined
+  const [vaultBalance, setVaultBalance] = useState<bigint>(BigInt(0))
 
   useEffect(() => {
     let mounted = true
@@ -118,12 +119,30 @@ function PropertyCard({ property, writeContractAsync }: { property: any, writeCo
     load(); return () => { mounted = false }
   }, [property.sale, property.token, address])
 
+  // load vault balance if enabled
+  useEffect(() => {
+    let mounted = true
+    async function loadVault() {
+      try {
+        if (!address || !VAULT) { if (mounted) setVaultBalance(BigInt(0)); return }
+        const bal = await publicClient.readContract({ address: VAULT, abi: vaultAbi as any, functionName: 'balanceOf', args: [address] }) as any
+        if (mounted) setVaultBalance(BigInt(bal || 0))
+      } catch { if (mounted) setVaultBalance(BigInt(0)) }
+    }
+    loadVault(); return () => { mounted = false }
+  }, [address, VAULT])
+
   const soldPct = purchased !== null ? Number((purchased * BigInt(100)) / MAX) : 0
   const priceStr = price !== null ? (Number(price) / 1e6).toFixed(2) : '-'
   const ownedPct = owned !== null ? Number((owned * BigInt(100)) / MAX) : 0
   const remaining = purchased !== null ? Math.max(0, Number(MAX - purchased)) : 1000
   const amountNum = Math.max(0, parseInt(amount || '0'))
   const totalCostStr = price !== null && amountNum > 0 ? `$${((Number(price) / 1e6) * amountNum).toFixed(2)}` : '-'
+  const vaultHasEnough = (() => {
+    if (!VAULT || price === null) return true
+    const cost = BigInt(Number(price) * amountNum)
+    return vaultBalance >= cost
+  })()
 
   return (
     <Card className="overflow-hidden group hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 bg-card/60 backdrop-blur-sm border-border/50 shadow-lg">
@@ -219,7 +238,10 @@ function PropertyCard({ property, writeContractAsync }: { property: any, writeCo
             </div>
           </div>
           
-          <Button className="w-full h-11 gradient-emerald hover:shadow-xl hover:shadow-emerald-500/25 transition-all duration-300 text-white border-0 hover:scale-[1.02] font-semibold text-sm"
+          {!vaultHasEnough && VAULT && (
+            <div className="text-xs text-amber-600 dark:text-amber-400 -mt-1 mb-2">Insufficient in-app balance. Please deposit in your <a className="underline" href="/wallet">Wallet</a>.</div>
+          )}
+          <Button className="w-full h-11 gradient-emerald hover:shadow-xl hover:shadow-emerald-500/25 transition-all duration-300 text-white border-0 hover:scale-[1.02] font-semibold text-sm" disabled={VAULT ? !vaultHasEnough || amountNum<=0 : false}
             onClick={async () => {
               const loader = showLoading()
               try {
