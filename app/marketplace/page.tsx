@@ -9,7 +9,7 @@ import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useAccount, useWriteContract } from 'wagmi'
 import { useEffect, useState } from 'react'
-import { marketplaceAbi, erc20Abi, propertySaleAbi } from '@/lib/abis'
+import { marketplaceAbi, erc20Abi, propertySaleAbi, vaultAbi } from '@/lib/abis'
 import { publicClient } from '@/lib/publicClient'
 import { useToast } from '@/hooks/use-toast'
 import { rebuildMarketplaceListingsFromChain, buildMarketData, type OrderBook, type TradeEvent } from '@/lib/market'
@@ -18,6 +18,7 @@ import Image from 'next/image'
 
 const MARKETPLACE = process.env.NEXT_PUBLIC_MARKETPLACE as `0x${string}`
 const USD = process.env.NEXT_PUBLIC_USD as `0x${string}`
+const VAULT = process.env.NEXT_PUBLIC_VAULT as `0x${string}` | undefined
 
 function loadCatalog() {
   if (typeof window === 'undefined') return [] as any[]
@@ -449,6 +450,15 @@ export default function MarketplacePage() {
 
               {/* Trade panel */}
               <div className="space-y-4">
+                {address && VAULT && (
+                  <div className="rounded-xl border border-border/50 p-3 text-xs text-muted-foreground">
+                    {(() => {
+                      return (
+                        <span>Using in-app balance for trades. Manage funds in Wallet.</span>
+                      )
+                    })()}
+                  </div>
+                )}
                 <Tabs value={tradeTab} onValueChange={(v)=> setTradeTab(v as 'buy' | 'sell')}>
                   <TabsList className="w-full">
                     <TabsTrigger className="flex-1" value="buy">Buy</TabsTrigger>

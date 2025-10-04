@@ -116,3 +116,15 @@ export const marketplaceAbi = [
 ] as const
 
 
+// Simple in-app Vault (demo): holds DUSD balances, 2% fee on withdraw
+export const vaultAbi = [
+  { "type": "event", "name": "Deposited", "inputs": [ { "name": "user", "type": "address", "indexed": true }, { "name": "amount", "type": "uint256", "indexed": false } ] },
+  { "type": "event", "name": "Withdrawn", "inputs": [ { "name": "user", "type": "address", "indexed": true }, { "name": "gross", "type": "uint256", "indexed": false }, { "name": "fee", "type": "uint256", "indexed": false } ] },
+  { "type": "function", "name": "token", "stateMutability": "view", "inputs": [], "outputs": [ { "type": "address" } ] },
+  { "type": "function", "name": "feeBps", "stateMutability": "view", "inputs": [], "outputs": [ { "type": "uint16" } ] },
+  { "type": "function", "name": "balanceOf", "stateMutability": "view", "inputs": [ { "name": "user", "type": "address" } ], "outputs": [ { "type": "uint256" } ] },
+  { "type": "function", "name": "deposit", "stateMutability": "nonpayable", "inputs": [ { "name": "amount", "type": "uint256" } ], "outputs": [] },
+  { "type": "function", "name": "withdraw", "stateMutability": "nonpayable", "inputs": [ { "name": "amount", "type": "uint256" } ], "outputs": [] }
+] as const
+
+
