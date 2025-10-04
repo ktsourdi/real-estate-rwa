@@ -9,7 +9,8 @@ import {
   Briefcase, 
   Receipt, 
   Menu,
-  X
+  X,
+  Wallet
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -22,6 +23,7 @@ const navigation = [
   { name: 'Transactions', href: '/transactions', icon: Receipt },
   { name: 'Marketplace', href: '/marketplace', icon: Briefcase },
   { name: 'Faucet', href: '/faucet', icon: Receipt },
+  { name: 'Wallet', href: '/wallet', icon: Wallet },
 ]
 
 export function Sidebar() {

@@ -15,6 +15,7 @@ import { useToast } from '@/hooks/use-toast'
 import { rebuildMarketplaceListingsFromChain, buildMarketData, type OrderBook, type TradeEvent } from '@/lib/market'
 import { parseEventLogs } from 'viem'
 import Image from 'next/image'
+import Link from 'next/link'
 
 const MARKETPLACE = process.env.NEXT_PUBLIC_MARKETPLACE as `0x${string}`
 const USD = process.env.NEXT_PUBLIC_USD as `0x${string}`
@@ -59,6 +60,7 @@ export default function MarketplacePage() {
   const [sellQty, setSellQty] = useState<string>('')
   const [sellPrice, setSellPrice] = useState<string>('')
   const [tradeTab, setTradeTab] = useState<'buy' | 'sell'>('buy')
+  const [vaultBalance, setVaultBalance] = useState<bigint>(BigInt(0))
 
   async function refreshMarket() {
     try {
@@ -70,6 +72,19 @@ export default function MarketplacePage() {
       setSelectedAskId(best?.id ?? null)
     } catch {}
   }
+
+  // Load in-app vault balance
+  useEffect(() => {
+    let mounted = true
+    async function loadVault() {
+      try {
+        if (!address || !VAULT) { if (mounted) setVaultBalance(BigInt(0)); return }
+        const bal = await publicClient.readContract({ address: VAULT, abi: vaultAbi as any, functionName: 'balanceOf', args: [address] }) as any
+        if (mounted) setVaultBalance(BigInt(bal || 0))
+      } catch { if (mounted) setVaultBalance(BigInt(0)) }
+    }
+    loadVault(); return () => { mounted = false }
+  }, [address])
 
   // Load listings from localStorage and chain (fallback)
   useEffect(() => {
@@ -451,12 +466,9 @@ export default function MarketplacePage() {
               {/* Trade panel */}
               <div className="space-y-4">
                 {address && VAULT && (
-                  <div className="rounded-xl border border-border/50 p-3 text-xs text-muted-foreground">
-                    {(() => {
-                      return (
-                        <span>Using in-app balance for trades. Manage funds in Wallet.</span>
-                      )
-                    })()}
+                  <div className="rounded-xl border border-border/50 p-3 text-xs text-muted-foreground flex items-center justify-between">
+                    <span>In-app DUSD balance: <span className="font-medium text-foreground">${(Number(vaultBalance)/1e6).toFixed(2)}</span></span>
+                    <Link className="text-emerald-600 hover:underline" href="/wallet">Manage in Wallet</Link>
                   </div>
                 )}
                 <Tabs value={tradeTab} onValueChange={(v)=> setTradeTab(v as 'buy' | 'sell')}>
