@@ -57,6 +57,18 @@ export default function MarketplacePage() {
   const [range, setRange] = useState<'1H' | '1D' | '1W' | 'ALL'>('ALL')
   const [sellQty, setSellQty] = useState<string>('')
   const [sellPrice, setSellPrice] = useState<string>('')
+  const [tradeTab, setTradeTab] = useState<'buy' | 'sell'>('buy')
+
+  async function refreshMarket() {
+    try {
+      if (!form.saleOrToken) { setOrderBook(null); setTrades([]); setLastPrice6(null); return }
+      const { orderBook: ob, trades: tr, lastPrice6: lp } = await buildMarketData(form.saleOrToken)
+      setOrderBook(ob); setTrades(tr); setLastPrice6(lp)
+      const best = ob.asks?.[0]
+      setBuyQty(best ? '1' : '')
+      setSelectedAskId(best?.id ?? null)
+    } catch {}
+  }
 
   // Load listings from localStorage and chain (fallback)
   useEffect(() => {
@@ -347,18 +359,32 @@ export default function MarketplacePage() {
                           <TableHead>Price</TableHead>
                           <TableHead>Amount</TableHead>
                           <TableHead>Total</TableHead>
+                          <TableHead>Action</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {(orderBook?.asks || []).slice(0, 10).map((a: any, idx: number) => (
-                          <TableRow key={idx} className={`cursor-pointer hover:bg-red-50/50 dark:hover:bg-red-950/10 ${selectedAskId === a.id ? 'bg-red-50/60 dark:bg-red-950/20' : ''}`} onClick={() => { setSelectedAskId(a.id); setBuyQty(String(Math.max(1, Math.min(a.amount, parseInt(buyQty||'1'))))); }}>
+                          <TableRow key={idx} className={`cursor-pointer hover:bg-red-50/50 dark:hover:bg-red-950/10 ${selectedAskId === a.id ? 'bg-red-50/60 dark:bg-red-950/20' : ''}`} onClick={() => { setSelectedAskId(a.id); setBuyQty(String(Math.max(1, Math.min(a.amount, parseInt(buyQty||'1'))))); setTradeTab('buy') }}>
                             <TableCell className="text-red-600 dark:text-red-400">${(a.price6/1e6).toFixed(2)}</TableCell>
                             <TableCell>{a.amount}</TableCell>
                             <TableCell>${((a.price6/1e6) * a.amount).toFixed(2)}</TableCell>
+                            <TableCell onClick={(e)=> e.stopPropagation()}>
+                              {address && a.seller && String(a.seller).toLowerCase() === String(address).toLowerCase() ? (
+                                <Button size="sm" variant="outline" onClick={async ()=>{
+                                  try {
+                                    await writeContractAsync({ address: MARKETPLACE, abi: marketplaceAbi, functionName: 'cancel', args: [BigInt(a.id)] })
+                                    toast({ title: 'Listing cancelled', description: `Cancelled #${a.id}` })
+                                    await refreshMarket()
+                                  } catch (e:any) {
+                                    toast({ title: 'Cancel failed', description: e?.message || 'Error', variant: 'destructive' })
+                                  }
+                                }}>Cancel</Button>
+                              ) : null}
+                            </TableCell>
                           </TableRow>
                         ))}
                         {(!orderBook?.asks || orderBook.asks.length === 0) && (
-                          <TableRow><TableCell colSpan={3} className="text-muted-foreground">No asks</TableCell></TableRow>
+                          <TableRow><TableCell colSpan={4} className="text-muted-foreground">No asks</TableCell></TableRow>
                         )}
                       </TableBody>
                     </Table>
@@ -423,7 +449,7 @@ export default function MarketplacePage() {
 
               {/* Trade panel */}
               <div className="space-y-4">
-                <Tabs defaultValue="buy">
+                <Tabs value={tradeTab} onValueChange={(v)=> setTradeTab(v as 'buy' | 'sell')}>
                   <TabsList className="w-full">
                     <TabsTrigger className="flex-1" value="buy">Buy</TabsTrigger>
                     <TabsTrigger className="flex-1" value="sell">Sell</TabsTrigger>
@@ -452,10 +478,16 @@ export default function MarketplacePage() {
                                 if (!address) return
                                 const amount = BigInt(clamped)
                                 const cost = BigInt(Math.round(selected.price6 * clamped))
-                                await writeContractAsync({ address: USD, abi: erc20Abi, functionName: 'approve', args: [MARKETPLACE, cost] })
+                                try {
+                                  const allowance = await publicClient.readContract({ address: USD as `0x${string}`, abi: erc20Abi as any, functionName: 'allowance', args: [address as `0x${string}`, MARKETPLACE] }) as any
+                                  if (BigInt(allowance || 0) < cost) {
+                                    await writeContractAsync({ address: USD, abi: erc20Abi, functionName: 'approve', args: [MARKETPLACE, cost] })
+                                  }
+                                } catch {}
                                 await writeContractAsync({ address: MARKETPLACE, abi: marketplaceAbi, functionName: 'buy', args: [BigInt(selected.id), amount] })
                                 setBuyQty('')
                                 toast({ title: 'Trade submitted', description: 'Waiting for confirmation…' })
+                                await refreshMarket()
                               } catch (e:any) {
                                 toast({ title: 'Trade failed', description: e?.message || 'Error', variant: 'destructive' })
                               }
@@ -476,10 +508,16 @@ export default function MarketplacePage() {
                           const amount = BigInt(Math.max(0, parseInt(sellQty||'0')))
                           if (amount <= BigInt(0)) return
                           const price6 = BigInt(Math.round((parseFloat(sellPrice||'0')||0) * 1e6))
-                          await writeContractAsync({ address: form.saleOrToken as `0x${string}`, abi: erc20Abi, functionName: 'approve', args: [MARKETPLACE, amount] })
+                          try {
+                            const allowance = await publicClient.readContract({ address: form.saleOrToken as `0x${string}`, abi: erc20Abi as any, functionName: 'allowance', args: [address as `0x${string}`, MARKETPLACE] }) as any
+                            if (BigInt(allowance || 0) < amount) {
+                              await writeContractAsync({ address: form.saleOrToken as `0x${string}`, abi: erc20Abi, functionName: 'approve', args: [MARKETPLACE, amount] })
+                            }
+                          } catch {}
                           await writeContractAsync({ address: MARKETPLACE, abi: marketplaceAbi, functionName: 'createListing', args: [form.saleOrToken as `0x${string}`, amount, price6] })
                           setSellQty(''); setSellPrice('')
                           toast({ title: 'Listing submitted', description: 'Waiting for confirmation…' })
+                          await refreshMarket()
                         } catch (e:any) {
                           toast({ title: 'Sell failed', description: e?.message || 'Error', variant: 'destructive' })
                         }
